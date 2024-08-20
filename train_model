@@ -1,0 +1,48 @@
+from datetime import datetime
+import gymnasium as gym
+from model.model import Model
+import tkinter as tk
+from tkinter import messagebox
+from plotting.plotting import plot_training_progress
+
+# ==============================================================
+
+# 0 - Baseline
+# 1 - Deep Q-Network
+# 2 - PPO
+# 3 - A2C
+model_selection = 2
+
+training_timesteps = 100000
+
+timestep = 0.01
+
+# ==============================================================
+
+def user_prompt(question: str):
+    # Create the root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    # Ask the user if they want to save the model
+    response = messagebox.askyesno("User Prompt", question)
+    # Destroy the root window
+    root.destroy()
+    return response
+
+# ==============================================================
+
+env = gym.make(id='GazeFixAgent',
+               timestep = timestep)
+
+model = Model(env, model_selection)
+
+model.learn(training_timesteps)
+plot_training_progress(model.callback)
+
+if user_prompt("Do you want a demo run?"):
+    model.run_model()
+
+if model_selection != 0:
+    if user_prompt("Do you want to save the model?"):
+        folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+        model.save(folder)

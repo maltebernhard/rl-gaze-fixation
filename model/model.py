@@ -1,6 +1,6 @@
 from stable_baselines3 import A2C, DQN, PPO
 from env.agent import Agent
-#from model.baseline import BaselineModel
+from model.baseline import BaselineModel
 #from model.q_learning import QLearning
 from plotting.plotting import PlottingCallback
 
@@ -27,9 +27,9 @@ class Model:
         elif model_selection == 3:
             self.model = A2C('MlpPolicy', self.agent, learning_rate=0.001, verbose=1, seed=model_seed)
             self.model_name = "A2C"
-        # elif model_selection == 0:
-        #     self.model = BaselineModel(self.agent)
-        #     self.model_name = "BSL"
+        elif model_selection == 0:
+            self.model = BaselineModel(self.agent)
+            self.model_name = "BSL"
         # elif model_selection == 4:
         #     self.model = QLearning(self.agent)
         #     self.model_name = "TQL"
