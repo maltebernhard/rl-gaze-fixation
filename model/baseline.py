@@ -6,6 +6,8 @@ from plotting.plotting import PlottingCallback
 class BaselineModel:
     def __init__(self, env: Agent):
         self.env = env
+        self.action_mode = self.env.action_mode
+        self.use_contingencies = self.env.use_contingencies
         self.state = None
         self.action = None
         
@@ -32,7 +34,16 @@ class BaselineModel:
         if self.state is None:
             self.state = state
         if self.action is None:
-            self.action = [2.0,0.0]
+            if self.action_mode == 1:
+                if self.use_contingencies:
+                    self.action = [2.0,0.0]
+                else:
+                    self.action = [2.0,0.0,0.0]
+            elif self.action_mode == 2:
+                if self.use_contingencies:
+                    self.action = [2,1]
+                else:
+                    self.action = [2,1,1]
         
         return self.action, []
         

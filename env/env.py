@@ -82,13 +82,14 @@ class Target:
 # =====================================================================================================
 
 class Environment(gym.Env):
-    def __init__(self, timestep, distance = 2.0):
+    def __init__(self, timestep: float, action_mode: int, distance: float):
         super().__init__()
+        self.action_mode = action_mode
 
         self.timestep = timestep
         self.time = 0.0
 
-        self.distance = 2.0
+        self.distance = distance
 
         # env dimensions
         self.world_size = WORLD_SIZE
@@ -106,12 +107,18 @@ class Environment(gym.Env):
                 #gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2,-self.robot.max_vel,-self.robot.max_vel,-self.robot.max_vel_phi]), high=np.array([self.robot.sensor_angle/2,self.robot.max_vel,self.robot.max_vel,self.robot.max_vel_phi]), shape=(4,))
             )
         )
-        self.action_space = gym.spaces.Box(
-            low=np.array([-ROBOT_MAX_ACC, -ROBOT_MAX_ACC, -ROBOT_MAX_ACC_PHI]),
-            high=np.array([ROBOT_MAX_ACC, ROBOT_MAX_ACC, ROBOT_MAX_ACC_PHI]),
-            shape=(3,),
-            dtype=np.float64
-        )
+        if self.action_mode == 1:
+            self.action_space = gym.spaces.Box(
+                low=np.array([-ROBOT_MAX_ACC, -ROBOT_MAX_ACC, -ROBOT_MAX_ACC_PHI]),
+                high=np.array([ROBOT_MAX_ACC, ROBOT_MAX_ACC, ROBOT_MAX_ACC_PHI]),
+                shape=(3,),
+                dtype=np.float64
+            )
+        elif action_mode == 2:
+            self.action_space = gym.spaces.MultiDiscrete(
+                np.array([[3, 3, 3]])
+            )
+        else: raise NotImplementedError
 
         self.collision: bool = False
 
@@ -121,7 +128,8 @@ class Environment(gym.Env):
     
     def step(self, action):
         self.time += self.timestep
-        action = self.validate_action(action) # make sure acceleration vector is within bounds
+        if self.action_mode == 1:
+            action = self.validate_action(action) # make sure acceleration vector is within bounds
         self.move_robot(action)
         self.move_target()
         return self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
@@ -167,8 +175,13 @@ class Environment(gym.Env):
         return np.array([translative_acc[0], translative_acc[1], action[2]])
     
     def move_robot(self, action):
-        xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([action[0], action[1]])
-        self.robot.del_pose += np.concatenate([xy_acc, np.array([action[2]])]) * self.timestep                           # apply acceleration to robot's velocity
+        if self.action_mode == 1:
+            xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([action[0], action[1]])
+            phi_acc = action[2]
+        elif self.action_mode == 2:
+            xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([(action[0]-1)*self.robot.max_acc, (action[1]-1)*self.robot.max_acc])
+            phi_acc = (action[2] - 1) * self.robot.max_acc_phi
+        self.robot.del_pose += np.concatenate([xy_acc, np.array([phi_acc])]) * self.timestep                           # apply acceleration to robot's velocity
         vel_vec = np.array([self.robot.del_pose.x, self.robot.del_pose.y])
         vel = np.linalg.norm(vel_vec)                                           # compute absolute velocity
         if vel > ROBOT_MAX_VEL:                                                 # make sure absolute velocity is within bounds

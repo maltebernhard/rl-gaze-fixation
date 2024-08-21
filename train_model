@@ -11,7 +11,16 @@ from plotting.plotting import plot_training_progress
 # 1 - Deep Q-Network
 # 2 - PPO
 # 3 - A2C
-model_selection = 2
+model_selection = 0
+
+# 1 - Acceleration in range
+# 2 - Acceleration -1 , 0, 1
+action_mode = 2
+
+# distance to target for reward function
+target_distance = 2.0
+
+use_contingencies = True
 
 training_timesteps = 100000
 
@@ -32,7 +41,10 @@ def user_prompt(question: str):
 # ==============================================================
 
 env = gym.make(id='GazeFixAgent',
-               timestep = timestep)
+               timestep = timestep,
+               action_mode = action_mode,
+               use_contingencies = use_contingencies,
+               distance = target_distance)
 
 model = Model(env, model_selection)
 

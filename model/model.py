@@ -18,7 +18,10 @@ class Model:
 
     def set_model(self, model_selection, model_seed):
         # Define the model
-        if model_selection == 1:
+        if model_selection == 0:
+            self.model = BaselineModel(self.agent)
+            self.model_name = "BSL"
+        elif model_selection == 1:
             self.model = DQN('MlpPolicy', self.agent, learning_rate=0.001, exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=model_seed)
             self.model_name = "DQN"
         elif model_selection == 2:
@@ -27,9 +30,6 @@ class Model:
         elif model_selection == 3:
             self.model = A2C('MlpPolicy', self.agent, learning_rate=0.001, verbose=1, seed=model_seed)
             self.model_name = "A2C"
-        elif model_selection == 0:
-            self.model = BaselineModel(self.agent)
-            self.model_name = "BSL"
         # elif model_selection == 4:
         #     self.model = QLearning(self.agent)
         #     self.model_name = "TQL"
