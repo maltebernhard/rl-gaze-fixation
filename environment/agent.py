@@ -16,14 +16,14 @@ class Agent(gym.Env):
         self.action_mode: int = config["action_mode"]
         self.target_distance: float = config["target_distance"]
         self.wall_collision: bool = config["wall_collision"]
-        self.obstacles: bool = config["obstacles"]
+        self.obstacles: bool = config["num_obstacles"]
 
         self.metadata = self.env.metadata
 
         self.use_contingencies = config["use_contingencies"]
-        self.contingencies = [GazeFixation(self.env.robot.max_acc_phi, self.action_mode)]
+        self.contingencies = [GazeFixation(self.env.robot.max_acc_rot, self.action_mode)]
         
-        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, -self.env.robot.max_vel_phi]), high=np.array([self.env.robot.sensor_angle/2, self.env.robot.max_vel_phi]), shape=(2,), dtype=np.float64)
+        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, -self.env.robot.max_vel_rot]), high=np.array([self.env.robot.sensor_angle/2, self.env.robot.max_vel_rot]), shape=(2,), dtype=np.float64)
 
         if self.action_mode == 1:
             if self.use_contingencies:
@@ -35,8 +35,8 @@ class Agent(gym.Env):
                 )
             else:
                 self.action_space = gym.spaces.Box(
-                    low=np.array(([-self.env.robot.max_acc, -self.env.robot.max_acc, -self.env.robot.max_acc_phi])),
-                    high=np.array(([self.env.robot.max_acc, self.env.robot.max_acc, self.env.robot.max_acc_phi])),
+                    low=np.array(([-self.env.robot.max_acc, -self.env.robot.max_acc, -self.env.robot.max_acc_rot])),
+                    high=np.array(([self.env.robot.max_acc, self.env.robot.max_acc, self.env.robot.max_acc_rot])),
                     shape=(3,),
                     dtype=np.float32
                 )
