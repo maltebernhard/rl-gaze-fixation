@@ -1,52 +1,62 @@
 import gymnasium as gym
-import env
+import environment
 import numpy as np
+from model.model import Model
 
-# ============================================
-
-timestep = 0.01 # timestep in seconds
+# ============================= config =================================
 
 # 1 - Acceleration in range
 # 2 - Acceleration -1 , 0, 1
 action_mode = 2
-
 # distance to target for reward function
 target_distance = 2.0
+wall_collision = False
+obstacles = False
+use_contingencies = True
+timestep = 0.01
+env_seed = 123
 
-use_contingencies = False
+model_selection = 0
 
-# ==============================================
+# ==============================================================
+
+model_config = {
+    "model_selection" : model_selection
+}
+
+env_config = {
+    "timestep" : timestep,
+    "action_mode" : action_mode,
+    "target_distance" : target_distance,
+    "wall_collision" : wall_collision,
+    "obstacles" : obstacles,
+    "use_contingencies" : use_contingencies,
+    "seed" : env_seed
+}
 
 # Create and wrap the environment
-envi = gym.make(id='GazeFixAgent',
-               timestep = timestep,
-               action_mode = action_mode,
-               use_contingencies = use_contingencies,
-               distance = target_distance
-               )
+env = gym.make(id='GazeFixAgent',
+               config = env_config
+              )
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
+baseline_model = Model(env, model_config)
+
 step = 0
-observation = envi.reset()
+observation = env.reset()
 total_reward = 0
 done = False
 while not done:
-    envi.render()
-    action = envi.action_space.sample()
+    env.render()
+    #action = env.action_space.sample()
 
-    # if step < 100:
-    #     action = [1.0, 0.0]
-    # else:
-    #     action = [0.0, 0.0]
+    action = baseline_model.predict(observation)[0]
 
-    # rand = np.random.random()
-    # action = [3.0, rand]
-
-    observation, reward, done, truncated, info = envi.step(action[0])
+    observation, reward, done, truncated, info = env.step(action)
     step += 1
     total_reward += reward
-    print(f'Observation: {observation} | Action: {action[0]}')
+    print(f'Observation: {observation} | Action: {action}')
 print("Episode finished with total reward {}".format(total_reward))
 
-envi.close()
+env.close()

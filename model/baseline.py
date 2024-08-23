@@ -1,5 +1,5 @@
 import math
-from env.agent import Agent
+from environment.agent import Agent
 
 from plotting.plotting import PlottingCallback
 

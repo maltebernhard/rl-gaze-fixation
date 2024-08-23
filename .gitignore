@@ -1,1 +1,5 @@
 *.pyc
+wandb/*
+runs/*
+models/*
+training_data/*

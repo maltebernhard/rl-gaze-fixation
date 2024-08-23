@@ -1,42 +1,61 @@
+from datetime import datetime
 from stable_baselines3 import A2C, DQN, PPO
-from env.agent import Agent
+import yaml
+from environment.agent import Agent
 from model.baseline import BaselineModel
 #from model.q_learning import QLearning
 from plotting.plotting import PlottingCallback
+import json
 
 # =======================================================
 
 class Model:
-    def __init__(self, agent: Agent, model_selection, model_seed = 0) -> None:
+    def __init__(self, agent: Agent, model_config, model=None) -> None:
         self.agent = agent
+        self.config = model_config
+        self.model_selection = self.config["model_selection"]
         self.timesteps_learned = 0
-        self.set_model(model_selection, model_seed)
+        if model is not None:
+            self.model = model
+            self.set_model_name()
+        else:
+            self.set_model()
         # Create the callback
         self.callback = PlottingCallback(self.model_name)
 
     # ============================================= model stuff =================================================
 
-    def set_model(self, model_selection, model_seed):
+    def set_model(self):
         # Define the model
-        if model_selection == 0:
+        if self.model_selection == 0:
             self.model = BaselineModel(self.agent)
-            self.model_name = "BSL"
-        elif model_selection == 1:
-            self.model = DQN('MlpPolicy', self.agent, learning_rate=0.001, exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=model_seed)
-            self.model_name = "DQN"
-        elif model_selection == 2:
-            self.model = PPO('MlpPolicy', self.agent, learning_rate=0.001, verbose=1, seed=model_seed)
-            self.model_name = "PPO"
-        elif model_selection == 3:
-            self.model = A2C('MlpPolicy', self.agent, learning_rate=0.001, verbose=1, seed=model_seed)
-            self.model_name = "A2C"
+        elif self.model_selection == 1:
+            self.model = DQN(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["model_seed"])
+        elif self.model_selection == 2:
+            self.model = PPO(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["model_seed"])
+        elif self.model_selection == 3:
+            self.model = A2C(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["model_seed"])
         # elif model_selection == 4:
         #     self.model = QLearning(self.agent)
         #     self.model_name = "TQL"
         else: raise Exception("Please select a model!")
+        self.set_model_name()
 
-    def learn(self, total_timesteps):
-        self.model.learn(total_timesteps=total_timesteps, callback=self.callback)
+    def set_model_name(self):
+        if self.model_selection == 0:
+            self.model_name = "BSL"
+        elif self.model_selection == 1:
+            self.model_name = "DQN"
+        elif self.model_selection == 2:
+            self.model_name = "PPO"
+        elif self.model_selection == 3:
+            self.model_name = "A2C"
+
+    def learn(self, total_timesteps, callback=None):
+        if callback is None:
+            self.model.learn(total_timesteps=total_timesteps, callback=self.callback)
+        else:
+            self.model.learn(total_timesteps=total_timesteps, callback=callback)
         self.timesteps_learned += total_timesteps
 
     def predict(self, obs, deterministic = True):
@@ -57,14 +76,20 @@ class Model:
         except KeyboardInterrupt:
             pass
 
-    def save(self, folder = ""):
-        filename = self.model_name + '_' + str(self.agent.env_attr('max_balls')) + '_' + str(self.agent.get_wrapper_attr('timestep')).split('.')[1] + '_' + str(self.timesteps_learned) + '_' + str(self.agent.get_wrapper_attr('state_mode')) + '_' + str(self.agent.get_wrapper_attr('observation_mode')) + '_' + str(self.agent.get_wrapper_attr('reward_mode')) + '_' + str(self.agent.get_wrapper_attr('action_mode'))
+    def save(self, folder = None):
+        if folder is None:
+            folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+        config = self.agent.get_wrapper_attr('config')
+        filename = f"{self.model_name}_{self.model_selection}"
         self.model.save(folder + filename)
+        with open(folder + 'env_config.yaml', 'w') as file:
+            yaml.dump(config, file, default_flow_style=False)
+        with open(folder + 'model_config.yaml', 'w') as file:
+            yaml.dump(self.config, file, default_flow_style=False)
 
     def load(self, filename):
         # Load the trained agent
         if self.model_name == "DQN": self.model = DQN.load(filename, self.agent)
         elif self.model_name == "PPO": self.model = PPO.load(filename, self.agent)
         elif self.model_name == "A2C": self.model = A2C.load(filename, self.agent)
-        # elif self.model_name == "BSL": self.model = BaselineModel(self.agent)
         # elif self.model_name == "TQL": self.model = QLearning.load(filename, self.agent)

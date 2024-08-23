@@ -2,10 +2,10 @@ import gymnasium as gym
 
 gym.envs.register(
     id='GazeFixEnv',
-    entry_point='env.env:Environment',
+    entry_point='environment.env:Environment',
 )
 
 gym.envs.register(
     id='GazeFixAgent',
-    entry_point='env.agent:Agent',
+    entry_point='environment.agent:Agent',
 )

@@ -21,7 +21,7 @@ ROBOT_MAX_VEL_PHI = 3.0
 ROBOT_MAX_ACC = 3.0
 ROBOT_MAX_ACC_PHI = 10.0
 
-MAX_TIME = 30.0
+MAX_TIME = 60.0
 
 # =====================================================================================================
 
@@ -74,6 +74,11 @@ class Robot:
         self.max_acc = ROBOT_MAX_ACC
         self.max_acc_phi = ROBOT_MAX_ACC_PHI
 
+class Obstacle:
+    def __init__(self, radius, pos):
+        self.radius = radius
+        self.pos: Pose = pos
+
 class Target:
     def __init__(self, x=0, y=0):
         self.pose = Pose(x,y)
@@ -82,14 +87,18 @@ class Target:
 # =====================================================================================================
 
 class Environment(gym.Env):
-    def __init__(self, timestep: float, action_mode: int, distance: float):
+    def __init__(self, config: dict):
         super().__init__()
-        self.action_mode = action_mode
+        self.config = config
 
-        self.timestep = timestep
+        self.timestep: float = config["timestep"]
         self.time = 0.0
 
-        self.distance = distance
+        self.action_mode: int = config["action_mode"]
+
+        self.distance: float = config["target_distance"]
+        self.wall_collision: bool = config["wall_collision"]
+        self.num_obstacles: bool = config["obstacles"]
 
         # env dimensions
         self.world_size = WORLD_SIZE
@@ -98,11 +107,14 @@ class Environment(gym.Env):
 
         self.robot = Robot()
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
+        self.obstacles = []
+        for _ in range(self.num_obstacles):
+            self.obstacles.append(Obstacle(np.random.random()*self.world_size/4,Pose((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)), dtype=np.float64)
 
         self.observation_space = gym.spaces.Tuple(
             (
                 gym.spaces.Discrete(2),
-                gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2]), high=np.array([self.robot.sensor_angle/2]), shape=(1,))
+                gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2]), high=np.array([self.robot.sensor_angle/2]), shape=(1,), dtype=np.float64)
                 # include robot's dimensional velocities
                 #gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2,-self.robot.max_vel,-self.robot.max_vel,-self.robot.max_vel_phi]), high=np.array([self.robot.sensor_angle/2,self.robot.max_vel,self.robot.max_vel,self.robot.max_vel_phi]), shape=(4,))
             )
@@ -114,9 +126,9 @@ class Environment(gym.Env):
                 shape=(3,),
                 dtype=np.float64
             )
-        elif action_mode == 2:
+        elif self.action_mode == 2:
             self.action_space = gym.spaces.MultiDiscrete(
-                np.array([[3, 3, 3]])
+                np.array([3, 3, 3])
             )
         else: raise NotImplementedError
 
@@ -124,7 +136,9 @@ class Environment(gym.Env):
 
         # rendering window
         self.viewer = None
-        metadata = {'render_modes': ['human'], 'render_fps': 1/timestep}
+        metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
+
+        self.reset(self.config["seed"])
     
     def step(self, action):
         self.time += self.timestep
@@ -135,6 +149,9 @@ class Environment(gym.Env):
         return self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
     
     def reset(self, seed=None, **kwargs):
+        if seed is not None:
+            super().reset(seed=seed)
+            np.random.seed(seed)
         self.time = 0.0
         self.robot = Robot()
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
@@ -146,8 +163,8 @@ class Environment(gym.Env):
         self.screen = None
         
     def get_observation(self):
-        angle = np.arctan2(self.target.pose.y-self.robot.pose.y, self.target.pose.x-self.robot.pose.x) - self.robot.pose.phi
-        return (int(angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2), np.array([self.normalize_angle(angle)]))
+        angle = self.normalize_angle(np.arctan2(self.target.pose.y-self.robot.pose.y, self.target.pose.x-self.robot.pose.x) - self.robot.pose.phi)
+        return (int(angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2), np.array([angle]))
         # include robot velocity into state
         #return (int(angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2), np.array([angle, self.robot.del_pose.x, self.robot.del_pose.y, self.robot.del_pose.phi]))
     
@@ -175,27 +192,32 @@ class Environment(gym.Env):
         return np.array([translative_acc[0], translative_acc[1], action[2]])
     
     def move_robot(self, action):
+        # set xy and angular accelerations
         if self.action_mode == 1:
             xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([action[0], action[1]])
             phi_acc = action[2]
         elif self.action_mode == 2:
             xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([(action[0]-1)*self.robot.max_acc, (action[1]-1)*self.robot.max_acc])
             phi_acc = (action[2] - 1) * self.robot.max_acc_phi
-        self.robot.del_pose += np.concatenate([xy_acc, np.array([phi_acc])]) * self.timestep                           # apply acceleration to robot's velocity
-        vel_vec = np.array([self.robot.del_pose.x, self.robot.del_pose.y])
-        vel = np.linalg.norm(vel_vec)                                           # compute absolute velocity
-        if vel > ROBOT_MAX_VEL:                                                 # make sure absolute velocity is within bounds
-            vel_vec = vel_vec / vel * ROBOT_MAX_VEL
-        del_phi = self.robot.del_pose.phi
-        if abs(del_phi) > ROBOT_MAX_VEL_PHI:
-            del_phi = np.sign(del_phi) * ROBOT_MAX_VEL_PHI
-        self.robot.del_pose = Pose(vel_vec[0], vel_vec[1], del_phi)
+        self.robot.del_pose += np.concatenate([xy_acc, np.array([phi_acc])]) * self.timestep    # update robot velocity vector
+        self.limit_robot_velocity()
         # move robot
         self.robot.pose += self.robot.del_pose * self.timestep
-        # constrain phi to range [-pi, pi] 
+        # constrain phi to range [-pi, pi]
         if self.robot.pose.phi < -np.pi: self.robot.pose.phi = self.robot.pose.phi + 2*np.pi
         elif self.robot.pose.phi > np.pi: self.robot.pose.phi = self.robot.pose.phi - 2*np.pi
-        self.check_collision()
+        # TODO: how should the walls be used?
+        #self.check_collision()
+
+    def limit_robot_velocity(self):  
+        vel_vec = np.array([self.robot.del_pose.x, self.robot.del_pose.y])
+        vel = np.linalg.norm(vel_vec)                                                           # compute absolute translational velocity
+        if vel > ROBOT_MAX_VEL:                                                                 # make sure translational velocity is within bounds
+            vel_vec = vel_vec / vel * ROBOT_MAX_VEL
+        del_phi = self.robot.del_pose.phi                                                       # make sure rotational velocity is within bounds
+        if abs(del_phi) > ROBOT_MAX_VEL_PHI:
+            del_phi = np.sign(del_phi) * ROBOT_MAX_VEL_PHI
+        self.robot.del_pose = Pose(vel_vec[0], vel_vec[1], del_phi)                             # update robot velocity vector
 
     def move_target(self):
         # TODO: implement
@@ -221,6 +243,16 @@ class Environment(gym.Env):
     def normalize_angle(self, angle):
         """Normalize an angle to the range [-pi, pi]."""
         return np.arctan2(np.sin(angle), np.cos(angle))
+
+    def calculate_circle_coverage(self, radius, distance, fov_angle_degrees):
+        # Convert FOV angle from degrees to radians
+        fov_angle_radians = math.radians(fov_angle_degrees)
+        # Calculate the angular size of the circle
+        angular_size = 2 * math.atan(radius / distance)
+        # Calculate the proportion of the FOV occupied by the circle
+        coverage = angular_size / fov_angle_radians
+        # Ensure the coverage value is between 0 and 1
+        return min(coverage, 1.0)
 
     # ----------------------------------- render stuff -----------------------------------------
 

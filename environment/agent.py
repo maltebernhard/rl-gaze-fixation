@@ -2,48 +2,52 @@ import numpy as np
 from typing import List
 import gymnasium as gym
 from contingency.contingency import GazeFixation
-from env.env import Environment
+from environment.env import Environment
 
 class Agent(gym.Env):
-    def __init__(self, timestep: float, action_mode: int, use_contingencies: bool, distance: float):
+    def __init__(self, config: dict):
         super().__init__()
         self.env : Environment = gym.make(id='GazeFixEnv',
-                                          timestep = timestep,
-                                          action_mode = action_mode,
-                                          distance = distance)
-        self.action_mode = action_mode
-        self.timestep = timestep
+                                          config = config)
+        
+        self.config = config
+
+        self.timestep: float = config["timestep"]
+        self.action_mode: int = config["action_mode"]
+        self.target_distance: float = config["target_distance"]
+        self.wall_collision: bool = config["wall_collision"]
+        self.obstacles: bool = config["obstacles"]
 
         self.metadata = self.env.metadata
 
-        self.use_contingencies = use_contingencies
+        self.use_contingencies = config["use_contingencies"]
         self.contingencies = [GazeFixation(self.env.robot.max_acc_phi, self.action_mode)]
         
-        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, -self.env.robot.max_vel_phi]), high=np.array([self.env.robot.sensor_angle/2, self.env.robot.max_vel_phi]), shape=(2,))
+        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, -self.env.robot.max_vel_phi]), high=np.array([self.env.robot.sensor_angle/2, self.env.robot.max_vel_phi]), shape=(2,), dtype=np.float64)
 
         if self.action_mode == 1:
-            if use_contingencies:
+            if self.use_contingencies:
                 self.action_space = gym.spaces.Box(
                     low=np.array([-self.env.robot.max_acc]*2),
                     high=np.array([self.env.robot.max_acc]*2),
                     shape=(2,),
-                    dtype=np.float64
+                    dtype=np.float32
                 )
             else:
                 self.action_space = gym.spaces.Box(
                     low=np.array(([-self.env.robot.max_acc, -self.env.robot.max_acc, -self.env.robot.max_acc_phi])),
                     high=np.array(([self.env.robot.max_acc, self.env.robot.max_acc, self.env.robot.max_acc_phi])),
                     shape=(3,),
-                    dtype=np.float64
+                    dtype=np.float32
                 )
         elif self.action_mode == 2:
-            if use_contingencies:
+            if self.use_contingencies:
                 self.action_space = gym.spaces.MultiDiscrete(
-                    np.array([[3, 3]])
+                    np.array([3, 3])
                 )
             else:
                 self.action_space = gym.spaces.MultiDiscrete(
-                    np.array([[3, 3, 3]])
+                    np.array([3, 3, 3])
                 )
         else:
             raise NotImplementedError
@@ -63,6 +67,9 @@ class Agent(gym.Env):
         return self.state, reward, done, truncated, info
 
     def reset(self, seed=None, **kwargs):
+        if seed is not None:
+            super().reset(seed=seed)
+            np.random.seed(seed)
         self.total_reward = 0.0
         obs, info = self.env.reset(seed=seed, **kwargs)
         return self._get_state(obs), info
