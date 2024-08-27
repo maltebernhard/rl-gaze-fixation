@@ -13,6 +13,7 @@ timestep = 0.01
 episode_length = 10.0
 world_size = 50.0
 target_distance = 10.0
+reward_margin = 3.0
 wall_collision = False
 num_obstacles = 5
 
@@ -43,6 +44,7 @@ env_config = {
     "robot_max_acc_rot" : robot_max_acc_rot,
     "action_mode" : action_mode,
     "target_distance" : target_distance,
+    "target_distance_reward_margin" : reward_margin,
     "wall_collision" : wall_collision,
     "num_obstacles" : num_obstacles,
     "use_contingencies" : use_contingencies,

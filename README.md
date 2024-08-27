@@ -1,7 +1,6 @@
 # gaze-fixation
 
 ## ToDo:
-- think about applicability of different action spaces (e.g. accelerate (left, 0, right) for each dimension)
 - make reward margin visible in render, include into config
 - adapt robot state:
     - uncouple angle from pose, split into point and orientation

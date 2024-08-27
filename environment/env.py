@@ -12,6 +12,7 @@ import math
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
+LIGHT_RED = (255, 200, 200)
 BLACK = (0, 0, 0)
 GREY = (200, 200, 200)
 
@@ -91,7 +92,8 @@ class Environment(gym.Env):
 
         self.action_mode: int = config["action_mode"]
 
-        self.distance: float = config["target_distance"]
+        self.target_distance: float = config["target_distance"]
+        self.target_distance_reward_margin: float = config["target_distance_reward_margin"]
         self.wall_collision: bool = config["wall_collision"]
         self.num_obstacles: bool = config["num_obstacles"]
 
@@ -108,8 +110,8 @@ class Environment(gym.Env):
             self.obstacles.append(Obstacle(radius,Pose(random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius))))
 
         self.observation_space = gym.spaces.Box(
-            low=np.array([-self.robot.sensor_angle/2, self.distance, 0.0]),
-            high=np.array([self.robot.sensor_angle/2, self.distance, np.inf]),
+            low=np.array([-self.robot.sensor_angle/2, self.target_distance, 0.0]),
+            high=np.array([self.robot.sensor_angle/2, self.target_distance, np.inf]),
             shape=(3,),
             dtype=np.float64
         )
@@ -159,16 +161,16 @@ class Environment(gym.Env):
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pose.y-self.robot.pose.y, self.target.pose.x-self.robot.pose.x) - self.robot.pose.phi)
         if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
-            return np.array([angle, self.distance, self.target_distance()])
+            return np.array([angle, self.target_distance, self.robot_target_distance()])
         else:
-            return np.array([np.pi, self.distance, self.target_distance()])
+            return np.array([np.pi, self.target_distance, self.robot_target_distance()])
     
     def get_reward(self):
         if self.collision:
             return -1000000
-        dist = self.target_distance()
-        if abs(dist-self.distance) < 1.0:
-            return 1.0 / (abs(dist-self.distance) + 1.0) * self.timestep
+        dist = self.robot_target_distance()
+        if abs(dist-self.target_distance) < self.target_distance_reward_margin:
+            return 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
         return 0.0
     
     def get_terminated(self):
@@ -236,7 +238,7 @@ class Environment(gym.Env):
                 self.robot.pose.y = self.world_size / 2 - self.robot.size/2
                 self.collision = True
 
-    def target_distance(self):
+    def robot_target_distance(self):
         return np.linalg.norm(np.array([self.target.pose.x-self.robot.pose.x,self.target.pose.y-self.robot.pose.y]))
     
     def normalize_angle(self, angle):
@@ -269,8 +271,10 @@ class Environment(gym.Env):
         try: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pose.x,self.robot.pose.y)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi-self.robot.sensor_angle/2, self.world_size*3))])
         except: self.viewer.fill(WHITE)
 
+        # draw target distance margin
+        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), (self.target_distance+self.target_distance_reward_margin)*self.scale, width=int(2*self.target_distance_reward_margin*self.scale))
         # draw target distance
-        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), self.distance*self.scale, width=1)
+        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), self.target_distance*self.scale, width=1)
         # draw target
         pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), self.robot.size/2*self.scale)
 
