@@ -14,11 +14,11 @@ class GazeFixation(Contingency):
         self.action_mode = action_mode
 
     def contingent_action(self, obs, act):
-        d_phi_target = self.compute_target_vel(obs[0], obs[1])
+        d_phi_target = self.compute_target_vel(obs[0], obs[-1])
         if self.action_mode == 1:
-            return np.concatenate([act, np.array([self.pd_control(d_phi_target, obs[1])])])
+            return np.concatenate([act, np.array([self.pd_control(d_phi_target, obs[-1])])])
         elif self.action_mode == 2:
-            return np.concatenate([act, np.array([self.flip_control(d_phi_target, obs[1], 0.0)])])
+            return np.concatenate([act, np.array([self.flip_control(d_phi_target, obs[-1], 0.0)])])
         
     def flip_control(self, target, current, eps):
         if target-current > eps:

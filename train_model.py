@@ -12,15 +12,15 @@ from plotting.plotting import plot_training_progress
 # 2 - Acceleration -1 , 0, 1
 action_mode = 2
 timestep = 0.01
-episode_length = 60.0
+episode_length = 20.0
 world_size = 50.0
 target_distance = 10.0
 wall_collision = False
-num_obstacles = 5
+num_obstacles = 0
 
 robot_max_vel = 8.0
 robot_max_vel_rot = 3.0
-robot_max_acc = 3.0
+robot_max_acc = 8.0
 robot_max_acc_rot = 10.0
 
 env_seed = 123
@@ -36,7 +36,7 @@ use_contingencies = True
 model_selection = 2
 policy_type = "MlpPolicy"
 learning_rate = 0.02
-training_timesteps = 10000
+training_timesteps = 100000
 model_seed = 45283
 
 # ==============================================================
@@ -81,7 +81,7 @@ model_config = {
 env = gym.make(id='GazeFixAgent',
                config = env_config)
 
-model = Model(env, model_selection)
+model = Model(env, model_config)
 
 if model_selection != 0:
     model.learn(training_timesteps)

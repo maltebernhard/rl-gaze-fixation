@@ -30,11 +30,11 @@ class Model:
         if self.model_selection == 0:
             self.model = BaselineModel(self.agent)
         elif self.model_selection == 1:
-            self.model = DQN(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["model_seed"])
+            self.model = DQN(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["seed"])
         elif self.model_selection == 2:
-            self.model = PPO(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["model_seed"])
+            self.model = PPO(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
         elif self.model_selection == 3:
-            self.model = A2C(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["model_seed"])
+            self.model = A2C(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
         # elif model_selection == 4:
         #     self.model = QLearning(self.agent)
         #     self.model_name = "TQL"

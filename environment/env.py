@@ -107,13 +107,11 @@ class Environment(gym.Env):
             radius = np.random.random()*self.world_size/6
             self.obstacles.append(Obstacle(radius,Pose(random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius))))
 
-        self.observation_space = gym.spaces.Tuple(
-            (
-                gym.spaces.Discrete(2),
-                gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2]), high=np.array([self.robot.sensor_angle/2]), shape=(1,), dtype=np.float64)
-                # include robot's dimensional velocities
-                #gym.spaces.Box(low=np.array([-self.robot.sensor_angle/2,-self.robot.max_vel,-self.robot.max_vel,-self.robot.max_vel_phi]), high=np.array([self.robot.sensor_angle/2,self.robot.max_vel,self.robot.max_vel,self.robot.max_vel_phi]), shape=(4,))
-            )
+        self.observation_space = gym.spaces.Box(
+            low=np.array([-self.robot.sensor_angle/2, self.distance, 0.0]),
+            high=np.array([self.robot.sensor_angle/2, self.distance, np.inf]),
+            shape=(3,),
+            dtype=np.float64
         )
         if self.action_mode == 1:
             self.action_space = gym.spaces.Box(
@@ -160,9 +158,10 @@ class Environment(gym.Env):
         
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pose.y-self.robot.pose.y, self.target.pose.x-self.robot.pose.x) - self.robot.pose.phi)
-        return (int(angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2), np.array([angle]))
-        # include robot velocity into state
-        #return (int(angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2), np.array([angle, self.robot.del_pose.x, self.robot.del_pose.y, self.robot.del_pose.phi]))
+        if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
+            return np.array([angle, self.distance, self.target_distance()])
+        else:
+            return np.array([np.pi, self.distance, self.target_distance()])
     
     def get_reward(self):
         if self.collision:

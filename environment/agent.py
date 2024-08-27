@@ -23,7 +23,7 @@ class Agent(gym.Env):
         self.use_contingencies = config["use_contingencies"]
         self.contingencies = [GazeFixation(self.env.robot.max_acc_rot, self.action_mode)]
         
-        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, -self.env.robot.max_vel_rot]), high=np.array([self.env.robot.sensor_angle/2, self.env.robot.max_vel_rot]), shape=(2,), dtype=np.float64)
+        self.observation_space = self.observation_space = gym.spaces.Box(low=np.array([-self.env.robot.sensor_angle/2, self.config["target_distance"], 0.0, -self.env.robot.max_vel_rot]), high=np.array([self.env.robot.sensor_angle/2, self.config["target_distance"], np.inf, self.env.robot.max_vel_rot]), shape=(4,), dtype=np.float64)
 
         if self.action_mode == 1:
             if self.use_contingencies:
@@ -88,11 +88,8 @@ class Agent(gym.Env):
         # TODO: better implementation - currently: add first element twice
         if len(self.history) == 1:
             self.history.insert(0,observation)
-        vel = (self.history[1][1][0]-self.history[0][1][0])/self.timestep
-        if observation[0] == 1:
-            self.state = np.concatenate([observation[1], np.array([vel])])
-        else:
-            self.state = np.array([np.pi, 0.0])
+        vel_rot = (self.history[1][0]-self.history[0][0])/self.timestep
+        self.state = np.concatenate([observation, np.array([vel_rot])])
         return self.state
             
     def env_attr(self, attr):
