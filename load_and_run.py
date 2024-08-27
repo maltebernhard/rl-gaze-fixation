@@ -8,15 +8,17 @@ from model.model import Model
 
 filename = prompt_zip_file_selection()
 
-with open(filename[:-5] + 'config.yaml', 'r') as file:
-    config = yaml.load(file, Loader=yaml.SafeLoader)
+with open(filename[:-5] + 'env_config.yaml', 'r') as file:
+    env_config = yaml.load(file, Loader=yaml.SafeLoader)
+with open(filename[:-5] + 'model_config.yaml', 'r') as file:
+    model_config = yaml.load(file, Loader=yaml.SafeLoader)
 
 # Create and wrap the environment
 env = gym.make(id='GazeFixAgent',
-               config = config
+               config = env_config
               )
 
-model = Model(env, int(filename.split("_")[-1]))
+model = Model(env, model_config)
 
 model.load(filename)
 

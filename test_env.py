@@ -64,7 +64,7 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 baseline_model = Model(env, model_config)
 
 step = 0
-observation = env.reset()
+observation, info = env.reset()
 total_reward = 0
 done = False
 while not done:

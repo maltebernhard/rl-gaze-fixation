@@ -1,4 +1,6 @@
 import math
+
+import numpy as np
 from environment.agent import Agent
 
 from plotting.plotting import PlottingCallback
@@ -32,21 +34,28 @@ class BaselineModel:
                     obs, info = self.env.reset()
             print("Episode reward: {}".format(total_reward))
         
-    def predict(self, state, deterministic: bool = True):
-        if self.state is None:
-            self.state = state
-        if self.action is None:
-            if self.action_mode == 1:
-                if self.use_contingencies:
-                    self.action = [self.max_acc,0.0]
-                else:
-                    self.action = [self.max_acc,0.0,0.0]
-            elif self.action_mode == 2:
-                if self.use_contingencies:
-                    self.action = [2,1]
-                else:
-                    self.action = [2,1,1]
-        
+    def predict(self, state, eps = 0.01, deterministic: bool = True):
+        self.state = state
+        print(state)
+
+        acc_lateral = 1
+
+        if self.state[-2] > eps: acc_frontal = 2
+        elif self.state[-2] < 0:
+            acc_frontal = 1
+            if self.state[-4] > 0:
+                acc_lateral = 0
+        else:
+            acc_frontal = 1
+            if self.state[-4] > 0:
+                acc_lateral = 0
+            elif self.state[-4] < 0:
+                acc_frontal = 2
+
+        if self.use_contingencies: self.action = np.array([acc_frontal, acc_lateral])
+        else: self.action = np.array([acc_frontal, acc_lateral, 1])
+        if self.action_mode == 1:
+            self.action = (self.action - np.ones(self.action.shape)) * self.max_acc
         return self.action, []
         
     def save(self, file_path: str):

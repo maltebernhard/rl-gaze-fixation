@@ -131,9 +131,9 @@ class Environment(gym.Env):
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
         if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
-            return np.array([angle, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
+            return np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
         else:
-            return np.array([np.pi, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
+            return np.array([np.pi, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
     
     def get_reward(self):
         if self.collision:
@@ -192,7 +192,7 @@ class Environment(gym.Env):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        # TODO: implement
+        #self.target.pos[0] += 1.0 * self.timestep
         pass
     
     def check_collision(self):

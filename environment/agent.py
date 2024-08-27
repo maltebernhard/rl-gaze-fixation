@@ -90,7 +90,6 @@ class Agent(gym.Env):
         if len(self.history) == self.history_len:
             self.history.pop()
         self.history.insert(0,observation)
-        # TODO: better implementation - currently: add first element twice
         if len(self.history) == 1:
             self.history.insert(0,observation)
 

@@ -110,8 +110,8 @@ for run_name in ["CONT","FREE"]:
 
     def make_env():
         env = gym.make(id='GazeFixAgent',
-                    config=env_config[run_name]
-                    )
+                       config=env_config[run_name]
+                      )
         env.reset(seed=env_seed)
         return Monitor(env)  # record stats such as returns
 
