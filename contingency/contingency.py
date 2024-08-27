@@ -8,17 +8,20 @@ class Contingency:
         raise NotImplementedError
     
 class GazeFixation(Contingency):
-    def __init__(self, max_vel_rot, max_acc_rot, action_mode):
+    def __init__(self, timestep, max_vel_rot, max_acc_rot, action_mode):
         super().__init__()
         self.max_vel = max_vel_rot
         self.max_acc = max_acc_rot
         self.angle = (self.max_vel ** 2) / (2 * self.max_acc)
         self.action_mode = action_mode
+        self.epsilon = timestep * max_acc_rot * 0.5
 
     def contingent_action(self, obs, act):
         vel_rot_desired = self.compute_target_vel(obs[0])
-        #return np.concatenate([act, np.array([self.pd_control((vel_rot_desired-obs[-1]), obs[-1])])])
-        return np.concatenate([act, np.array([self.flip_control(vel_rot_desired, obs[-1], 0.0)])])
+        if self.action_mode == 1:
+            return np.concatenate([act, np.array([self.pd_control((vel_rot_desired-obs[-1]), obs[-1])])])
+        elif self.action_mode == 2:
+            return np.concatenate([act, np.array([self.flip_control(vel_rot_desired, obs[-1], self.epsilon)])])
         
     def flip_control(self, target, current, eps):
         action = 1

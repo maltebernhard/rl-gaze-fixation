@@ -21,27 +21,27 @@ class Agent(gym.Env):
         self.metadata = self.env.metadata
 
         self.use_contingencies = config["use_contingencies"]
-        self.contingencies = [GazeFixation(self.env.robot.max_vel_rot, self.env.robot.max_acc_rot, self.action_mode)]
+        self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
         self.observation_space = gym.spaces.Box(
-            low=np.array([-self.env.unwrapped.robot.sensor_angle/2, -self.env.unwrapped.robot.max_vel_rot, -self.env.unwrapped.robot.max_vel, -self.env.unwrapped.robot.max_vel, self.config["target_distance"], 0.0, -np.inf]),
-            high=np.array([self.env.unwrapped.robot.sensor_angle/2, self.env.unwrapped.robot.max_vel_rot, self.env.unwrapped.robot.max_vel, self.env.unwrapped.robot.max_vel, self.config["target_distance"], np.inf, np.inf]),
-            shape=(7,),
+            low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"], -np.inf]),
+            high=np.array([self.config["robot_sensor_angle"]/2, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf, np.inf]),
+            shape=(6,),
             dtype=np.float64
         )
 
         if self.action_mode == 1:
             if self.use_contingencies:
                 self.action_space = gym.spaces.Box(
-                    low=np.array([-self.env.robot.max_acc]*2),
-                    high=np.array([self.env.robot.max_acc]*2),
+                    low=np.array([-self.config["robot_max_acc"]]*2),
+                    high=np.array([self.config["robot_max_acc"]]*2),
                     shape=(2,),
                     dtype=np.float32
                 )
             else:
                 self.action_space = gym.spaces.Box(
-                    low=np.array(([-self.env.robot.max_acc, -self.env.robot.max_acc, -self.env.robot.max_acc_rot])),
-                    high=np.array(([self.env.robot.max_acc, self.env.robot.max_acc, self.env.robot.max_acc_rot])),
+                    low=np.array(([-self.config["robot_max_acc"], -self.config["robot_max_acc"], -self.config["robot_max_acc_rot"]])),
+                    high=np.array(([self.config["robot_max_acc"], self.config["robot_max_acc"], self.config["robot_max_acc_rot"]])),
                     shape=(3,),
                     dtype=np.float32
                 )

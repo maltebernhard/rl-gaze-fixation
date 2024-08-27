@@ -8,15 +8,16 @@ from model.model import Model
 
 # 1 - Acceleration in range
 # 2 - Acceleration -1 , 0, 1
-action_mode = 2
-timestep = 0.01
-episode_length = 10.0
+action_mode = 1
+timestep = 0.05
+episode_length = 60.0
 world_size = 50.0
 target_distance = 10.0
 reward_margin = 3.0
 wall_collision = False
 num_obstacles = 0
 
+robot_sensor_angle = np.pi / 2
 robot_max_vel = 8.0
 robot_max_vel_rot = 3.0
 robot_max_acc = 8.0
@@ -39,6 +40,7 @@ env_config = {
     "timestep" : timestep,
     "episode_length" : episode_length,
     "world_size" : world_size,
+    "robot_sensor_angle" : robot_sensor_angle,
     "robot_max_vel" : robot_max_vel,
     "robot_max_vel_rot" : robot_max_vel_rot,
     "robot_max_acc" : robot_max_acc,
@@ -74,7 +76,7 @@ while not done:
     observation, reward, done, truncated, info = env.step(action)
     step += 1
     total_reward += reward
-    if step % 100 == 0:
+    if step % 1 == 0:
         print(f'Observation: {observation} | Action: {action}')
 print("Episode finished with total reward {}".format(total_reward))
 

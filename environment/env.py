@@ -21,17 +21,23 @@ SCREEN_SIZE = 900
 # =====================================================================================================
 
 class Robot:
-    def __init__(self, max_vel, max_vel_rot, max_acc, max_acc_rot):
+    def __init__(self, sensor_angle, max_vel, max_vel_rot, max_acc, max_acc_rot):
         self.pos: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
         self.orientation: float = 0.0
         self.vel: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
         self.vel_rot: float = 0.0
-        self.sensor_angle: float = np.pi / 2
+        self.sensor_angle: float = sensor_angle
         self.size: float = 0.5
         self.max_vel: float = max_vel
         self.max_vel_rot: float = max_vel_rot
         self.max_acc: float = max_acc
         self.max_acc_rot: float = max_acc_rot
+
+    def reset(self):
+        self.pos: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
+        self.orientation: float = 0.0
+        self.vel: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
+        self.vel_rot: float = 0.0
 
 class Obstacle:
     def __init__(self, radius = 1.0, pos = np.array([0.0, 0.0], dtype=np.float64)):
@@ -66,7 +72,7 @@ class Environment(gym.Env):
         self.screen_size = SCREEN_SIZE
         self.scale = SCREEN_SIZE / self.world_size
 
-        self.robot = Robot(config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
+        self.robot = Robot(config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
         self.obstacles: List[Obstacle] = []
         for _ in range(self.num_obstacles):
@@ -74,9 +80,9 @@ class Environment(gym.Env):
             self.obstacles.append(Obstacle(radius, np.array([random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius)])))
 
         self.observation_space = gym.spaces.Box(
-            low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, self.target_distance, 0.0]),
-            high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, self.target_distance, np.inf]),
-            shape=(6,),
+            low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance]),
+            high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf]),
+            shape=(5,),
             dtype=np.float64
         )
         if self.action_mode == 1:
@@ -113,7 +119,7 @@ class Environment(gym.Env):
             super().reset(seed=seed)
             np.random.seed(seed)
         self.time = 0.0
-        self.robot = Robot(self.config["robot_max_vel"], self.config["robot_max_vel_rot"], self.config["robot_max_acc"], self.config["robot_max_acc_rot"])
+        self.robot.reset()
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
         self.collision = False
         return self.get_observation(), self.get_info()
@@ -125,9 +131,9 @@ class Environment(gym.Env):
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
         if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
-            return np.array([angle, self.robot.vel[0], self.robot.vel[1], self.target_distance, self.robot_target_distance()])
+            return np.array([angle, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
         else:
-            return np.array([np.pi, self.robot.vel[0], self.robot.vel[1], self.target_distance, self.robot_target_distance()])
+            return np.array([np.pi, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
     
     def get_reward(self):
         if self.collision:
