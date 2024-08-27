@@ -15,7 +15,7 @@ world_size = 50.0
 target_distance = 10.0
 reward_margin = 3.0
 wall_collision = False
-num_obstacles = 5
+num_obstacles = 0
 
 robot_max_vel = 8.0
 robot_max_vel_rot = 3.0
@@ -23,6 +23,7 @@ robot_max_acc = 8.0
 robot_max_acc_rot = 10.0
 
 env_seed = int(time.time())
+env_seed = 123
 
 use_contingencies = True
 
@@ -73,7 +74,8 @@ while not done:
     observation, reward, done, truncated, info = env.step(action)
     step += 1
     total_reward += reward
-    print(f'Observation: {observation} | Action: {action}')
+    if step % 100 == 0:
+        print(f'Observation: {observation} | Action: {action}')
 print("Episode finished with total reward {}".format(total_reward))
 
 env.close()

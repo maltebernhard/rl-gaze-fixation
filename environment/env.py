@@ -20,64 +20,28 @@ SCREEN_SIZE = 900
 
 # =====================================================================================================
 
-class Pose:
-    def __init__(self, x = 0.0, y = 0.0, phi = 0.0):
-        self.x = x
-        self.y = y
-        self.phi = phi
-
-    def __add__(self, other):
-        if isinstance(other, np.ndarray) and other.shape == (3,):
-            return Pose(
-                self.x + other[0],
-                self.y + other[1],
-                self.phi + other[2]
-            )
-        if isinstance(other, Pose):
-            return Pose(
-                self.x + other.x,
-                self.y + other.y,
-                self.phi + other.phi
-            )
-        else:
-            return NotImplemented
-        
-    def __mul__(self, other):
-        if isinstance(other, (int, float)):
-            return Pose(
-                self.x * other,
-                self.y * other,
-                self.phi * other
-            )
-        else:
-            return NotImplemented
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
-
-    def __repr__(self):
-        return f"Pose: x={self.x}, y={self.y}, phi={self.phi}"
-
 class Robot:
     def __init__(self, max_vel, max_vel_rot, max_acc, max_acc_rot):
-        self.pose: Pose = Pose()
-        self.del_pose: Pose = Pose()
-        self.sensor_angle = np.pi / 2
-        self.size = 0.5
-        self.max_vel = max_vel
-        self.max_vel_rot = max_vel_rot
-        self.max_acc = max_acc
-        self.max_acc_rot = max_acc_rot
+        self.pos: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
+        self.orientation: float = 0.0
+        self.vel: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
+        self.vel_rot: float = 0.0
+        self.sensor_angle: float = np.pi / 2
+        self.size: float = 0.5
+        self.max_vel: float = max_vel
+        self.max_vel_rot: float = max_vel_rot
+        self.max_acc: float = max_acc
+        self.max_acc_rot: float = max_acc_rot
 
 class Obstacle:
-    def __init__(self, radius, pos):
-        self.radius = radius
-        self.pos: Pose = pos
+    def __init__(self, radius = 1.0, pos = np.array([0.0, 0.0], dtype=np.float64)):
+        self.radius: float = radius
+        self.pos: np.ndarray = pos
 
 class Target:
-    def __init__(self, x=0, y=0):
-        self.pose = Pose(x,y)
-        self.del_pose = Pose(0,0)
+    def __init__(self, x=0.0, y=0.0):
+        self.pos = np.array([x, y], dtype=np.float64)
+        self.vel = np.array([0.0, 0.0], dtype=np.float64)
 
 # =====================================================================================================
 
@@ -107,12 +71,12 @@ class Environment(gym.Env):
         self.obstacles: List[Obstacle] = []
         for _ in range(self.num_obstacles):
             radius = np.random.random()*self.world_size/6
-            self.obstacles.append(Obstacle(radius,Pose(random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius))))
+            self.obstacles.append(Obstacle(radius, np.array([random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius)])))
 
         self.observation_space = gym.spaces.Box(
-            low=np.array([-self.robot.sensor_angle/2, self.target_distance, 0.0]),
-            high=np.array([self.robot.sensor_angle/2, self.target_distance, np.inf]),
-            shape=(3,),
+            low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, self.target_distance, 0.0]),
+            high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, self.target_distance, np.inf]),
+            shape=(6,),
             dtype=np.float64
         )
         if self.action_mode == 1:
@@ -159,11 +123,11 @@ class Environment(gym.Env):
         self.screen = None
         
     def get_observation(self):
-        angle = self.normalize_angle(np.arctan2(self.target.pose.y-self.robot.pose.y, self.target.pose.x-self.robot.pose.x) - self.robot.pose.phi)
+        angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
         if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
-            return np.array([angle, self.target_distance, self.robot_target_distance()])
+            return np.array([angle, self.robot.vel[0], self.robot.vel[1], self.target_distance, self.robot_target_distance()])
         else:
-            return np.array([np.pi, self.target_distance, self.robot_target_distance()])
+            return np.array([np.pi, self.robot.vel[0], self.robot.vel[1], self.target_distance, self.robot_target_distance()])
     
     def get_reward(self):
         if self.collision:
@@ -182,38 +146,44 @@ class Environment(gym.Env):
     # -------------------------------------- helpers -------------------------------------------
 
     def validate_action(self, action):
-        translative_acc = action[:2]
-        translative_length = np.linalg.norm(translative_acc)
-        if translative_length > self.robot.max_acc:
-            translative_acc = (translative_acc / translative_length) * self.robot.max_acc
-        return np.array([translative_acc[0], translative_acc[1], action[2]])
+        acc = action[:2]
+        acc_abs = np.linalg.norm(acc)
+        if acc_abs > self.robot.max_acc:
+            acc = (acc / acc_abs) * self.robot.max_acc
+        acc_rot = action[2]
+        if abs(acc_rot) > self.robot.max_acc_rot:
+            acc_rot = acc_rot / abs(acc_rot) * self.robot.max_acc_rot
+        return np.array([acc[0], acc[1], acc_rot])
     
     def move_robot(self, action):
         # set xy and angular accelerations
         if self.action_mode == 1:
-            xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([action[0], action[1]])
-            phi_acc = action[2]
+            acc = np.array([action[0], action[1]])
+            acc_rot = action[2]
         elif self.action_mode == 2:
-            xy_acc = np.array([[np.cos(self.robot.pose.phi), -np.sin(self.robot.pose.phi)], [np.sin(self.robot.pose.phi), np.cos(self.robot.pose.phi)]]) @ np.array([(action[0]-1)*self.robot.max_acc, (action[1]-1)*self.robot.max_acc])
-            phi_acc = (action[2] - 1) * self.robot.max_acc_rot
-        self.robot.del_pose += np.concatenate([xy_acc, np.array([phi_acc])]) * self.timestep    # update robot velocity vector
+            acc = np.array([(action[0]-1)*self.robot.max_acc, (action[1]-1)*self.robot.max_acc])
+            acc_rot = (action[2] - 1) * self.robot.max_acc_rot
+        self.robot.vel += acc * self.timestep                   # update robot velocity vector
+        self.robot.vel_rot += acc_rot * self.timestep           # update rotational velocity
         self.limit_robot_velocity()
+
         # move robot
-        self.robot.pose += self.robot.del_pose * self.timestep
-        # constrain phi to range [-pi, pi]
-        if self.robot.pose.phi < -np.pi: self.robot.pose.phi = self.robot.pose.phi + 2*np.pi
-        elif self.robot.pose.phi > np.pi: self.robot.pose.phi = self.robot.pose.phi - 2*np.pi
+        self.robot.pos += (np.array([[np.cos(self.robot.orientation), -np.sin(self.robot.orientation)], [np.sin(self.robot.orientation), np.cos(self.robot.orientation)]]) @ self.robot.vel) * self.timestep
+        del_orientation = self.robot.vel_rot * self.timestep
+        self.robot.orientation += del_orientation
+        self.robot.vel = np.array([[np.cos(-del_orientation), -np.sin(-del_orientation)], [np.sin(-del_orientation), np.cos(-del_orientation)]]) @ self.robot.vel
+
+        # constrain orientation to range [-pi, pi]
+        if self.robot.orientation < -np.pi: self.robot.orientation = self.robot.orientation + 2*np.pi
+        elif self.robot.orientation > np.pi: self.robot.orientation = self.robot.orientation - 2*np.pi
         self.check_collision()
 
     def limit_robot_velocity(self):  
-        vel_vec = np.array([self.robot.del_pose.x, self.robot.del_pose.y])
-        vel = np.linalg.norm(vel_vec)                                                           # compute absolute translational velocity
-        if vel > self.robot.max_vel:                                                                 # make sure translational velocity is within bounds
-            vel_vec = vel_vec / vel * self.robot.max_vel
-        del_phi = self.robot.del_pose.phi                                                       # make sure rotational velocity is within bounds
-        if abs(del_phi) > self.robot.max_vel_rot:
-            del_phi = np.sign(del_phi) * self.robot.max_vel_rot
-        self.robot.del_pose = Pose(vel_vec[0], vel_vec[1], del_phi)                             # update robot velocity vector
+        vel = np.linalg.norm(self.robot.vel)                                            # compute absolute translational velocity
+        if vel > self.robot.max_vel:                                                    # make sure translational velocity is within bounds
+            self.robot.vel = self.robot.vel / vel * self.robot.max_vel
+        if abs(self.robot.vel_rot) > self.robot.max_vel_rot:                            # make sure rotational velocity is within bounds
+            self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
         # TODO: implement
@@ -221,25 +191,25 @@ class Environment(gym.Env):
     
     def check_collision(self):
         for o in self.obstacles:
-            if np.linalg.norm(np.array([o.pos.x-self.robot.pose.x,o.pos.y-self.robot.pose.y])) < o.radius + self.robot.size / 2:
+            if np.linalg.norm(np.array([o.pos[0]-self.robot.pos[0],o.pos[1]-self.robot.pos[1]])) < o.radius + self.robot.size / 2:
                 self.collision = True
                 return
         if self.wall_collision:
-            if self.robot.pose.x < -self.world_size / 2 + self.robot.size/2:
-                self.robot.pose.x = -self.world_size / 2 + self.robot.size/2
+            if self.robot.pos[0] < -self.world_size / 2 + self.robot.size/2:
+                self.robot.pos[0] = -self.world_size / 2 + self.robot.size/2
                 self.collision = True
-            elif self.robot.pose.x > self.world_size / 2 - self.robot.size/2:
-                self.robot.pose.x = self.world_size / 2 - self.robot.size/2
+            elif self.robot.pos[0] > self.world_size / 2 - self.robot.size/2:
+                self.robot.pos[0] = self.world_size / 2 - self.robot.size/2
                 self.collision = True
-            if self.robot.pose.y < -self.world_size / 2 + self.robot.size/2:
-                self.robot.pose.y = -self.world_size / 2 + self.robot.size/2
+            if self.robot.pos[1] < -self.world_size / 2 + self.robot.size/2:
+                self.robot.pos[1] = -self.world_size / 2 + self.robot.size/2
                 self.collision = True
-            elif self.robot.pose.y > self.world_size / 2 - self.robot.size/2:
-                self.robot.pose.y = self.world_size / 2 - self.robot.size/2
+            elif self.robot.pos[1] > self.world_size / 2 - self.robot.size/2:
+                self.robot.pos[1] = self.world_size / 2 - self.robot.size/2
                 self.collision = True
 
     def robot_target_distance(self):
-        return np.linalg.norm(np.array([self.target.pose.x-self.robot.pose.x,self.target.pose.y-self.robot.pose.y]))
+        return np.linalg.norm(np.array([self.target.pos[0]-self.robot.pos[0],self.target.pos[1]-self.robot.pos[1]]))
     
     def normalize_angle(self, angle):
         """Normalize an angle to the range [-pi, pi]."""
@@ -268,32 +238,32 @@ class Environment(gym.Env):
         # Fill the screen with white
         self.viewer.fill(GREY)
         # draw fov
-        try: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pose.x,self.robot.pose.y)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi-self.robot.sensor_angle/2, self.world_size*3))])
+        try: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))])
         except: self.viewer.fill(WHITE)
 
         # draw target distance margin
-        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), (self.target_distance+self.target_distance_reward_margin)*self.scale, width=int(2*self.target_distance_reward_margin*self.scale))
+        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), (self.target_distance+self.target_distance_reward_margin)*self.scale, width=int(2*self.target_distance_reward_margin*self.scale))
         # draw target distance
-        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), self.target_distance*self.scale, width=1)
+        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
         # draw target
-        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pose.x,self.target.pose.y)), self.robot.size/2*self.scale)
+        pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
 
         # draw vision axis
-        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pose.x,self.robot.pose.y)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi,self.world_size*3)))
+        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
 
         # draw Agent
-        pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pose.x,self.robot.pose.y)), self.robot.size/2*self.scale)
-        pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.pose.phi+np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi-np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.pose.phi, self.robot.size*0.7))])
+        pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size/2*self.scale)
+        pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*0.7))])
 
         # draw obstacles
         for o in self.obstacles:
-            pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos.x,o.pos.y)), o.radius*self.scale)
+            pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
 
         pygame.display.flip()
         self.rt_clock.tick(1/self.timestep)
 
     def polar_point(self, angle, distance):
-        return self.robot.pose.x + distance * math.cos(angle), self.robot.pose.y + distance * math.sin(angle)
+        return self.robot.pos[0] + distance * math.cos(angle), self.robot.pos[1] + distance * math.sin(angle)
     
     def pxl_coordinates(self, xy):
         x_pxl = int(self.screen_size/2 + xy[0] * self.scale)

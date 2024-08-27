@@ -10,6 +10,8 @@ class BaselineModel:
         self.use_contingencies = self.env.use_contingencies
         self.state = None
         self.action = None
+
+        self.max_acc = self.env.unwrapped.env.unwrapped.robot.max_acc
         
     def learn(self, total_timesteps: int, callback: PlottingCallback):
         obs, info = self.env.reset()
@@ -36,9 +38,9 @@ class BaselineModel:
         if self.action is None:
             if self.action_mode == 1:
                 if self.use_contingencies:
-                    self.action = [2.0,0.0]
+                    self.action = [self.max_acc,0.0]
                 else:
-                    self.action = [2.0,0.0,0.0]
+                    self.action = [self.max_acc,0.0,0.0]
             elif self.action_mode == 2:
                 if self.use_contingencies:
                     self.action = [2,1]
