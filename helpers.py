@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 def parse_filename(filename: str):
     filename = filename.split('/')[3].split('_')
@@ -30,3 +30,13 @@ def prompt_zip_file_selection() -> str:
         print(os.path.splitext("./training_data/" + date_folder + '/' + os.path.basename(file_path))[0])
         return os.path.splitext("./training_data/" + date_folder + '/' + os.path.basename(file_path))[0]
     return None
+
+def user_prompt(question: str):
+    # Create the root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    # Ask the user if they want to save the model
+    response = messagebox.askyesno("User Prompt", question)
+    # Destroy the root window
+    root.destroy()
+    return response

@@ -1,11 +1,10 @@
 from datetime import datetime
 from stable_baselines3 import A2C, DQN, PPO
+from stable_baselines3.common.utils import set_random_seed
 import yaml
 from environment.agent import Agent
 from model.baseline import BaselineModel
-#from model.q_learning import QLearning
 from plotting.plotting import PlottingCallback
-import json
 
 # =======================================================
 
@@ -61,20 +60,52 @@ class Model:
     def predict(self, obs, deterministic = True):
         return self.model.predict(obs, deterministic)
     
-    def run_model(self):
+    def reset(self):
+        set_random_seed(self.config["seed"])
+    
+    def run_model(self, num_episodes = 1, print_info = 0):
         try:
-            # Run the environment with the trained agent
-            obs, info = self.agent.reset()
-            dones = False
-            while not dones:
-                action, _states = self.predict(obs)
-                # print(f'Observation: {obs} | Action: {action}')
-                obs, rewards, dones, truncated, info = self.agent.step(action)
-                self.agent.render()
-                if dones:
-                    obs, info = self.agent.reset()
+            for episode in range(num_episodes):
+                total_reward = 0
+                step = 0
+                obs, info = self.agent.reset()
+                done = False
+                while not done:
+                    action, _states = self.predict(obs)
+                    if print_info != 0 and step % print_info == 0:
+                        print(f'-------------------- Step {step} ----------------------')
+                        print(f'Observation: {obs}')
+                        print(f'Action:      {action}')
+                    obs, reward, done, truncated, info = self.agent.step(action)
+                    if print_info != 0 and step % print_info == 0:
+                        print(f'Reward:      {reward}')
+                    total_reward += reward
+                    step += 1
+                    self.agent.render()
+                    if done:
+                        obs, info = self.agent.reset()
+                print(f"Episode {episode} finished with total reward {total_reward}")
         except KeyboardInterrupt:
             pass
+
+    # step = 0
+    # observation, info = env.reset()
+    # total_reward = 0
+    # done = False
+    # while not done:
+    #     env.render()
+    #     #action = env.action_space.sample()
+
+    #     action = baseline_model.predict(observation)[0]
+
+    #     observation, reward, done, truncated, info = env.step(action)
+    #     step += 1
+    #     total_reward += reward
+    #     if step % 1 == 0:
+    #         print(f'Observation: {observation} | Action: {action}')
+    # print("Episode finished with total reward {}".format(total_reward))
+
+    # env.close()
 
     def save(self, folder = None):
         if folder is None:

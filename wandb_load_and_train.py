@@ -1,13 +1,10 @@
 from datetime import datetime
 import gymnasium as gym
-import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 import wandb
 import yaml
-import environment
 from wandb.integration.sb3 import WandbCallback
 
 from helpers import prompt_zip_file_selection
@@ -25,7 +22,7 @@ with open(filename[:-5] + 'model_config.yaml', 'r') as file:
 
 run = wandb.init(
     project="Master Thesis",
-    name=datetime.today().strftime('%Y-%m-%d_%H-%M')+f"_CONT_pretrained",
+    name=datetime.today().strftime('%Y-%m-%d_%H-%M')+f"_CONT_pretrained2",
     config=model_config,
     sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
     monitor_gym=False,       # auto-upload the videos of agents playing the game
@@ -51,6 +48,7 @@ env = DummyVecEnv([make_env])
 
 model = PPO.load(filename, env.envs[0].env.unwrapped)
 model = Model(env.envs[0].env.unwrapped, model_config, model)
+model.reset()
 model.learn(
     total_timesteps=model_config["total_timesteps"],
     callback=WandbCallback(

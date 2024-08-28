@@ -1,0 +1,15 @@
+action_mode:        2
+episode_length:     30.0
+num_obstacles:      0
+robot_max_acc:      8.0
+robot_max_acc_rot:  10.0
+robot_max_vel:      8.0
+robot_max_vel_rot:  3.0
+robot_sensor_angle: 1.5707963267948966
+seed:               12345
+target_distance:    10.0
+reward_margin:      3.0
+timestep:           0.05
+use_contingencies:  false
+wall_collision:     false
+world_size:         50.0

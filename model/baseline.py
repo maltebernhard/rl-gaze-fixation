@@ -36,10 +36,8 @@ class BaselineModel:
         
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         self.state = state
-        print(state)
 
         acc_lateral = 1
-
         if self.state[-2] > eps: acc_frontal = 2
         elif self.state[-2] < 0:
             acc_frontal = 1

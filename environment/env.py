@@ -58,12 +58,14 @@ class Environment(gym.Env):
 
         self.episode_length = config["episode_length"]
         self.timestep: float = config["timestep"]
+        self.num_steps: int = 0
         self.time = 0.0
+        self.total_reward = 0.0
 
         self.action_mode: int = config["action_mode"]
 
         self.target_distance: float = config["target_distance"]
-        self.target_distance_reward_margin: float = config["target_distance_reward_margin"]
+        self.reward_margin: float = config["reward_margin"]
         self.wall_collision: bool = config["wall_collision"]
         self.num_obstacles: bool = config["num_obstacles"]
 
@@ -107,12 +109,15 @@ class Environment(gym.Env):
         self.reset(self.config["seed"])
     
     def step(self, action):
+        self.num_steps += 1
         self.time += self.timestep
         if self.action_mode == 1:
             action = self.validate_action(action) # make sure acceleration vector is within bounds
         self.move_robot(action)
         self.move_target()
-        return self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
+        obs, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
+        self.total_reward += rew
+        return obs, rew, done, trun, info
     
     def reset(self, seed=None, **kwargs):
         if seed is not None:
@@ -139,7 +144,7 @@ class Environment(gym.Env):
         if self.collision:
             return -1000000
         dist = self.robot_target_distance()
-        if abs(dist-self.target_distance) < self.target_distance_reward_margin:
+        if abs(dist-self.target_distance) < self.reward_margin:
             return 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
         return 0.0
     
@@ -244,26 +249,43 @@ class Environment(gym.Env):
         # Fill the screen with white
         self.viewer.fill(GREY)
         # draw fov
-        try: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))])
-        except: self.viewer.fill(WHITE)
+        # TODO: Consider larger FOV's?
+        if self.robot.sensor_angle < np.pi: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))])
+        else: self.viewer.fill(WHITE)
 
         # draw target distance margin
-        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), (self.target_distance+self.target_distance_reward_margin)*self.scale, width=int(2*self.target_distance_reward_margin*self.scale))
+        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), (self.target_distance+self.reward_margin)*self.scale, width=int(2*self.reward_margin*self.scale))
         # draw target distance
         pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
         # draw target
         pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
-
         # draw vision axis
         pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
-
         # draw Agent
         pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size/2*self.scale)
         pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*0.7))])
-
         # draw obstacles
         for o in self.obstacles:
             pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
+
+        font = pygame.font.Font(None, 24)
+        clock_surface = font.render('Step:', True, BLACK)
+        time_surface = font.render('Time:', True, BLACK)
+        step_reward = font.render('Step reward:', True, BLACK)
+        episode_reward = font.render('Total reward:', True, BLACK)
+        clock_surface_val = font.render(f'{self.num_steps}', True, BLACK)
+        time_surface_val = font.render('{0:.2f}'.format(self.time), True, BLACK)
+        step_reward_val = font.render('{0:.4f}'.format(self.get_reward()), True, BLACK)
+        episode_reward_val = font.render('{0:.4f}'.format(self.total_reward), True, BLACK)
+
+        self.viewer.blit(clock_surface, (10, 5))
+        self.viewer.blit(time_surface, (10, 30))
+        self.viewer.blit(step_reward, (10, 55))
+        self.viewer.blit(episode_reward, (10, 80))
+        self.viewer.blit(clock_surface_val, (150, 5))
+        self.viewer.blit(time_surface_val, (150, 30))
+        self.viewer.blit(step_reward_val, (150, 55))
+        self.viewer.blit(episode_reward_val, (150, 80))
 
         pygame.display.flip()
         self.rt_clock.tick(1/self.timestep)

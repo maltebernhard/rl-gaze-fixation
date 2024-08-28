@@ -1,6 +1,5 @@
 import gymnasium as gym
 import yaml
-import environment
 from helpers import prompt_zip_file_selection
 from model.model import Model
 
