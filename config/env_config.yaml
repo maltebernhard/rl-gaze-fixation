@@ -8,8 +8,8 @@ robot_max_vel_rot:  3.0
 robot_sensor_angle: 1.5707963267948966
 seed:               12345
 target_distance:    10.0
-reward_margin:      3.0
+reward_margin:      15.0
 timestep:           0.05
-use_contingencies:  false
+use_contingencies:  true
 wall_collision:     false
 world_size:         50.0

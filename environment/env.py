@@ -124,6 +124,8 @@ class Environment(gym.Env):
             super().reset(seed=seed)
             np.random.seed(seed)
         self.time = 0.0
+        self.num_steps = 0
+        self.total_reward = 0.0
         self.robot.reset()
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
         self.collision = False
@@ -254,7 +256,10 @@ class Environment(gym.Env):
         else: self.viewer.fill(WHITE)
 
         # draw target distance margin
-        pygame.draw.circle(self.viewer, LIGHT_RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), (self.target_distance+self.reward_margin)*self.scale, width=int(2*self.reward_margin*self.scale))
+        target_rect = pygame.Rect(self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), (0, 0)).inflate(((self.target_distance+self.reward_margin)*2*self.scale, (self.target_distance+self.reward_margin)*2*self.scale))
+        shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
+        pygame.draw.circle(shape_surf, (255,0,0,70), ((self.target_distance+self.reward_margin)*self.scale, (self.target_distance+self.reward_margin)*self.scale), (self.target_distance+self.reward_margin)*self.scale)
+        self.viewer.blit(shape_surf, target_rect)
         # draw target distance
         pygame.draw.circle(self.viewer, RED, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
         # draw target

@@ -19,7 +19,7 @@ model = Model(env, model_config)
 model.reset()
 
 if model_selection != 0:
-    model.learn(model_config["training_timesteps"])
+    model.learn(model_config["total_timesteps"])
     plot_training_progress(model.callback)
 
 if model_selection == 0 or user_prompt("Do you want a demo run?"):
