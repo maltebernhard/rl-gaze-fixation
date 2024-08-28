@@ -13,6 +13,7 @@ class Agent(gym.Env):
         self.config = config
 
         self.timestep: float = config["timestep"]
+        self.observe_distance: float = config["observe_distance"]
         self.action_mode: int = config["action_mode"]
         self.target_distance: float = config["target_distance"]
         self.wall_collision: bool = config["wall_collision"]
@@ -23,12 +24,20 @@ class Agent(gym.Env):
         self.use_contingencies = config["use_contingencies"]
         self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
-        self.observation_space = gym.spaces.Box(
-            low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"], -np.inf]),
-            high=np.array([self.config["robot_sensor_angle"]/2, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf, np.inf]),
-            shape=(6,),
-            dtype=np.float64
-        )
+        if self.observe_distance:
+            self.observation_space = gym.spaces.Box(
+                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"], -np.inf]),
+                high=np.array([self.config["robot_sensor_angle"]/2, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf, np.inf]),
+                shape=(6,),
+                dtype=np.float64
+            )
+        else:
+            self.observation_space = gym.spaces.Box(
+                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -np.inf]),
+                high=np.array([self.config["robot_sensor_angle"]/2, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf]),
+                shape=(5,),
+                dtype=np.float64
+            )
 
         if self.action_mode == 1:
             if self.use_contingencies:

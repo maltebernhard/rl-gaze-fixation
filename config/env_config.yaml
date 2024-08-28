@@ -1,4 +1,5 @@
 action_mode:        2
+observe_distance:   false
 episode_length:     30.0
 num_obstacles:      0
 robot_max_acc:      8.0

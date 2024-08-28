@@ -9,9 +9,13 @@ class BaselineModel:
     def __init__(self, env: Agent):
         self.env = env
         self.action_mode = self.env.action_mode
+        self.timestep = self.env.timestep
+        self.observe_distance = self.env.observe_distance
         self.use_contingencies = self.env.use_contingencies
         self.state = None
         self.action = None
+
+        self.target_distance = self.env.config["target_distance"]
 
         self.max_acc = self.env.unwrapped.env.unwrapped.robot.max_acc
         
@@ -33,8 +37,28 @@ class BaselineModel:
                 if done:
                     obs, info = self.env.reset()
             print("Episode reward: {}".format(total_reward))
-        
+
+    def estimate_distance(self, state):
+        print(state)
+        beta = abs(state[1]*self.timestep + state[0]-self.state[0])
+        b = np.sqrt((state[2]*self.timestep)**2 + (state[3]*self.timestep)**2)
+
+        vel = np.array([state[2], state[3]])
+        del_orientation = self.state[1]*self.timestep
+        vel = np.array([[np.cos(-del_orientation), -np.sin(-del_orientation)], [np.sin(-del_orientation), np.cos(-del_orientation)]]) @ vel
+        alpha =  abs(np.arctan2(vel[1]*self.timestep, vel[0]*self.timestep))
+
+        gamma = np.pi - alpha - beta
+        estimated_distance = b * np.sin(gamma) / np.sin(beta) - self.target_distance
+        #print(f"alpha: {alpha}\nb: {b}\nbeta: {beta}\nEstimate: {estimated_distance}")
+        return np.concatenate([state,np.array([estimated_distance])])
+
     def predict(self, state, eps = 0.01, deterministic: bool = True):
+        if self.state is None:
+            self.state = state
+        if not self.observe_distance:
+            state = self.estimate_distance(state)
+
         self.state = state
 
         acc_lateral = 1

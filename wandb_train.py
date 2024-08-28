@@ -29,7 +29,7 @@ for run_name in ["CONT","FREE"]:
     env_config["use_contingencies"] = (run_name == "CONT")
     def make_env():
         env = gym.make(id='GazeFixAgent',
-                       config=env_config[run_name]
+                       config=env_config
                       )
         env.reset(seed=env_config["seed"])
         return Monitor(env)  # record stats such as returns

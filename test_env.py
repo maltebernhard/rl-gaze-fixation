@@ -14,6 +14,7 @@ env_config = {
     "robot_max_acc":       8.0,
     "robot_max_acc_rot":   10.0,
     "action_mode":         2,
+    "observe_distance":    True,
     "target_distance":     10.0,
     "reward_margin":       10.0,
     "wall_collision":      False,
@@ -33,4 +34,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(3, 10)
+baseline_model.run_model(1, 1)

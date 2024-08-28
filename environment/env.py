@@ -62,7 +62,9 @@ class Environment(gym.Env):
         self.time = 0.0
         self.total_reward = 0.0
 
+        self.observe_distance = config["observe_distance"]
         self.action_mode: int = config["action_mode"]
+        self.action = np.array([0.0, 0.0, 0.0])
 
         self.target_distance: float = config["target_distance"]
         self.reward_margin: float = config["reward_margin"]
@@ -81,12 +83,20 @@ class Environment(gym.Env):
             radius = np.random.random()*self.world_size/6
             self.obstacles.append(Obstacle(radius, np.array([random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius), random.choice([1, -1])*max((np.random.random())*self.world_size/2, radius)])))
 
-        self.observation_space = gym.spaces.Box(
-            low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance]),
-            high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf]),
-            shape=(5,),
-            dtype=np.float64
-        )
+        if self.observe_distance:
+            self.observation_space = gym.spaces.Box(
+                low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance]),
+                high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf]),
+                shape=(5,),
+                dtype=np.float64
+            )
+        else:
+            self.observation_space = gym.spaces.Box(
+                low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel]),
+                high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel]),
+                shape=(4,),
+                dtype=np.float64
+            )
         if self.action_mode == 1:
             self.action_space = gym.spaces.Box(
                 low=np.array([-self.robot.max_acc, -self.robot.max_acc, -self.robot.max_acc_rot]),
@@ -112,7 +122,7 @@ class Environment(gym.Env):
         self.num_steps += 1
         self.time += self.timestep
         if self.action_mode == 1:
-            action = self.validate_action(action) # make sure acceleration vector is within bounds
+            self.action = self.validate_action(action) # make sure acceleration vector is within bounds
         self.move_robot(action)
         self.move_target()
         obs, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
@@ -126,6 +136,7 @@ class Environment(gym.Env):
         self.time = 0.0
         self.num_steps = 0
         self.total_reward = 0.0
+        self.action = np.array([0.0, 0.0, 0.0])
         self.robot.reset()
         self.target = Target((np.random.random()-0.5)*self.world_size, (np.random.random()-0.5)*self.world_size)
         self.collision = False
@@ -137,18 +148,25 @@ class Environment(gym.Env):
         
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
-        if angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
+        if not angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
+            angle = np.pi
+        if self.observe_distance:
             return np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
         else:
-            return np.array([np.pi, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
+            return np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1]])
     
     def get_reward(self):
         if self.collision:
             return -1000000
+        reward = 0.0
+        # reward being close to target distance
         dist = self.robot_target_distance()
         if abs(dist-self.target_distance) < self.reward_margin:
-            return 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
-        return 0.0
+            reward += 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
+        # penalize energy waste
+        reward -= np.linalg.norm(self.action[:2])/self.robot.max_acc * self.timestep / 10
+        reward -= abs(self.action[2])/self.robot.max_acc_rot * self.timestep / 10
+        return reward
     
     def get_terminated(self):
         return self.time > self.episode_length or self.collision
@@ -181,10 +199,10 @@ class Environment(gym.Env):
         self.limit_robot_velocity()
 
         # move robot
-        self.robot.pos += (np.array([[np.cos(self.robot.orientation), -np.sin(self.robot.orientation)], [np.sin(self.robot.orientation), np.cos(self.robot.orientation)]]) @ self.robot.vel) * self.timestep
+        self.robot.pos += (self.rotation_matrix(self.robot.orientation) @ self.robot.vel) * self.timestep
         del_orientation = self.robot.vel_rot * self.timestep
         self.robot.orientation += del_orientation
-        self.robot.vel = np.array([[np.cos(-del_orientation), -np.sin(-del_orientation)], [np.sin(-del_orientation), np.cos(-del_orientation)]]) @ self.robot.vel
+        self.robot.vel = self.rotation_matrix(-del_orientation) @ self.robot.vel
 
         # constrain orientation to range [-pi, pi]
         if self.robot.orientation < -np.pi: self.robot.orientation = self.robot.orientation + 2*np.pi
@@ -227,6 +245,12 @@ class Environment(gym.Env):
     def normalize_angle(self, angle):
         """Normalize an angle to the range [-pi, pi]."""
         return np.arctan2(np.sin(angle), np.cos(angle))
+
+    def rotation_matrix(self, angle):
+        return np.array(
+            [[np.cos(angle), -np.sin(angle)],
+             [np.sin(angle), np.cos(angle)]]
+        )
 
     def calculate_circle_coverage(self, radius, distance, fov_angle_degrees):
         # Convert FOV angle from degrees to radians

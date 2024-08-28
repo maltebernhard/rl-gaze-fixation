@@ -88,25 +88,6 @@ class Model:
         except KeyboardInterrupt:
             pass
 
-    # step = 0
-    # observation, info = env.reset()
-    # total_reward = 0
-    # done = False
-    # while not done:
-    #     env.render()
-    #     #action = env.action_space.sample()
-
-    #     action = baseline_model.predict(observation)[0]
-
-    #     observation, reward, done, truncated, info = env.step(action)
-    #     step += 1
-    #     total_reward += reward
-    #     if step % 1 == 0:
-    #         print(f'Observation: {observation} | Action: {action}')
-    # print("Episode finished with total reward {}".format(total_reward))
-
-    # env.close()
-
     def save(self, folder = None):
         if folder is None:
             folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
