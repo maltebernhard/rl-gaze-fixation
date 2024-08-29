@@ -16,17 +16,20 @@ with open('./config/env_config.yaml', 'r') as file:
 with open('./config/model_config.yaml', 'r') as file:
     model_config = yaml.load(file, Loader=yaml.SafeLoader)
 
-for run_name in ["CONT","FREE"]:
+
+
+for run_type in ["CONT","FREE"]:
+    run_name = datetime.today().strftime('%Y-%m-%d_%H-%M')+f"_{run_type}"
     run = wandb.init(
         project="Master Thesis",
-        name=datetime.today().strftime('%Y-%m-%d_%H-%M')+f"_{run_name}",
+        name=run_name,
         config=model_config,
         sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
         monitor_gym=False,       # auto-upload the videos of agents playing the game
         save_code=True,         # optional
     )
 
-    env_config["use_contingencies"] = (run_name == "CONT")
+    env_config["use_contingencies"] = (run_type == "CONT")
     def make_env():
         env = gym.make(id='GazeFixAgent',
                        config=env_config
@@ -55,6 +58,6 @@ for run_name in ["CONT","FREE"]:
         ),
     )
 
-    model.save()
+    model.save(folder = run_name)
 
     run.finish()

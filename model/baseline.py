@@ -8,14 +8,14 @@ from plotting.plotting import PlottingCallback
 class BaselineModel:
     def __init__(self, env: Agent):
         self.env = env
-        self.action_mode = self.env.action_mode
-        self.timestep = self.env.timestep
-        self.observe_distance = self.env.observe_distance
-        self.use_contingencies = self.env.use_contingencies
+        self.action_mode = self.env.unwrapped.action_mode
+        self.timestep = self.env.unwrapped.timestep
+        self.observe_distance = self.env.unwrapped.observe_distance
+        self.use_contingencies = self.env.unwrapped.use_contingencies
         self.state = None
         self.action = None
 
-        self.target_distance = self.env.config["target_distance"]
+        self.target_distance = self.env.unwrapped.config["target_distance"]
 
         self.max_acc = self.env.unwrapped.env.unwrapped.robot.max_acc
         

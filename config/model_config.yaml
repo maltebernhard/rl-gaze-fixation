@@ -3,4 +3,4 @@ learning_rate:    0.001
 model_selection:  2
 policy_type:      MlpPolicy
 seed:             12345
-total_timesteps:  250000
+total_timesteps:  1000000

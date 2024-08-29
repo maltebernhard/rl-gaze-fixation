@@ -86,14 +86,14 @@ class Environment(gym.Env):
         if self.observe_distance:
             self.observation_space = gym.spaces.Box(
                 low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance]),
-                high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf]),
+                high=np.array([np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf]),
                 shape=(5,),
                 dtype=np.float64
             )
         else:
             self.observation_space = gym.spaces.Box(
                 low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel]),
-                high=np.array([self.robot.sensor_angle/2, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel]),
+                high=np.array([np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel]),
                 shape=(4,),
                 dtype=np.float64
             )
@@ -148,7 +148,7 @@ class Environment(gym.Env):
         
     def get_observation(self):
         angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
-        if not angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2:
+        if not (angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2):
             angle = np.pi
         if self.observe_distance:
             return np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance])
@@ -164,8 +164,8 @@ class Environment(gym.Env):
         if abs(dist-self.target_distance) < self.reward_margin:
             reward += 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
         # penalize energy waste
-        reward -= np.linalg.norm(self.action[:2])/self.robot.max_acc * self.timestep / 10
-        reward -= abs(self.action[2])/self.robot.max_acc_rot * self.timestep / 10
+        reward -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 5
+        reward -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 5
         return reward
     
     def get_terminated(self):
