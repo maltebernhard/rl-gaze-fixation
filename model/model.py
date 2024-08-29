@@ -91,6 +91,8 @@ class Model:
     def save(self, folder = None):
         if folder is None:
             folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+        else:
+            folder = "./training_data/" + folder + "/"
         config = self.agent.get_wrapper_attr('config')
         filename = f"{self.model_name}_{self.model_selection}"
         self.model.save(folder + filename)
