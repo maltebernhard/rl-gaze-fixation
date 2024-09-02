@@ -1,3 +1,4 @@
+import time
 import gymnasium as gym
 import numpy as np
 from model.model import Model
@@ -18,9 +19,10 @@ env_config = {
     "target_distance":     10.0,
     "reward_margin":       10.0,
     "wall_collision":      False,
-    "num_obstacles":       0,
+    "num_obstacles":       3,
     "use_contingencies":   True,
-    "seed":                123
+    #"seed":                123
+    "seed":                int(time.time())
 }
 
 # ==========================================================================
@@ -34,4 +36,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(1, 1)
+baseline_model.run_model(5, 1)

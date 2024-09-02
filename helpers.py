@@ -27,7 +27,6 @@ def prompt_zip_file_selection() -> str:
     # Return the selected file's name without the .zip extension
     if file_path and file_path.endswith('.zip'):
         date_folder = file_path.split('/')[-2]
-        print(os.path.splitext("./training_data/" + date_folder + '/' + os.path.basename(file_path))[0])
         return os.path.splitext("./training_data/" + date_folder + '/' + os.path.basename(file_path))[0]
     return None
 

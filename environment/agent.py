@@ -17,7 +17,7 @@ class Agent(gym.Env):
         self.action_mode: int = config["action_mode"]
         self.target_distance: float = config["target_distance"]
         self.wall_collision: bool = config["wall_collision"]
-        self.obstacles: bool = config["num_obstacles"]
+        self.num_obstacles: bool = config["num_obstacles"]
 
         self.metadata = self.env.metadata
 
@@ -26,16 +26,16 @@ class Agent(gym.Env):
         
         if self.observe_distance:
             self.observation_space = gym.spaces.Box(
-                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"], -np.inf]),
-                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf, np.inf]),
-                shape=(6,),
+                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
+                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
+                shape=(6 + 3*self.num_obstacles,),
                 dtype=np.float64
             )
         else:
             self.observation_space = gym.spaces.Box(
-                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -np.inf]),
-                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf]),
-                shape=(5,),
+                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
+                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
+                shape=(5 + 2*self.num_obstacles,),
                 dtype=np.float64
             )
 

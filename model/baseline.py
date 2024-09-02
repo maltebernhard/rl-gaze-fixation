@@ -39,7 +39,6 @@ class BaselineModel:
             print("Episode reward: {}".format(total_reward))
 
     def estimate_distance(self, state):
-        print(state)
         beta = abs(state[1]*self.timestep + state[0]-self.state[0])
         b = np.sqrt((state[2]*self.timestep)**2 + (state[3]*self.timestep)**2)
 

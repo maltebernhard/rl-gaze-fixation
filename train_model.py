@@ -12,7 +12,7 @@ with open('./config/model_config.yaml', 'r') as file:
     model_config = yaml.load(file, Loader=yaml.SafeLoader)
     model_selection = model_config["model_selection"]
 
-env = gym.make(id='GazeFixAgent',
+env = gym.make(id = 'GazeFixAgent',
                config = env_config)
 
 model = Model(env, model_config)
