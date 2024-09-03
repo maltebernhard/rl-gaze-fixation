@@ -7,7 +7,7 @@ from model.model import Model
 
 env_config = {
     "timestep":            0.05,
-    "episode_length":      10.0,
+    "episode_length":      50.0,
     "world_size":          50.0,
     "robot_sensor_angle":  np.pi / 2,
     "robot_max_vel":       8.0,
@@ -18,10 +18,12 @@ env_config = {
     "observe_distance":    True,
     "target_distance":     10.0,
     "reward_margin":       10.0,
+    "penalty_margin":      5.0,
     "wall_collision":      False,
     "num_obstacles":       3,
+    "use_obstacles":       False,
     "use_contingencies":   True,
-    #"seed":                123
+    #"seed":               123
     "seed":                int(time.time())
 }
 
@@ -36,4 +38,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(5, 1)
+baseline_model.run_model(100, 1)

@@ -1,6 +1,7 @@
 action_mode:        2
 observe_distance:   true
-episode_length:     30.0
+episode_length:     60.0
+use_obstacles:      false
 num_obstacles:      3
 robot_max_acc:      8.0
 robot_max_acc_rot:  10.0
@@ -9,7 +10,8 @@ robot_max_vel_rot:  3.0
 robot_sensor_angle: 1.5707963267948966
 seed:               1
 target_distance:    10.0
-reward_margin:      15.0
+reward_margin:      10.0
+penalty_margin:     5.0
 timestep:           0.05
 use_contingencies:  true
 wall_collision:     false
