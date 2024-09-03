@@ -161,7 +161,8 @@ class Environment(gym.Env):
     
     def get_reward(self):
         if self.collision:
-            return - self.total_reward - self.episode_length
+            return - self.total_reward - 1.0
+            #return - self.total_reward - self.episode_length
         reward = 0.0
         # reward for being close to target distance
         dist = self.robot_target_distance()

@@ -14,6 +14,9 @@ with open(filename[:-5] + 'env_config.yaml', 'r') as file:
 with open(filename[:-5] + 'model_config.yaml', 'r') as file:
     model_config = yaml.load(file, Loader=yaml.SafeLoader)
 
+env_config["use_obstacles"] = True
+model_config["total_timesteps"] = 200000
+
 env = gym.make(id = 'GazeFixAgent',
                config = env_config)
 

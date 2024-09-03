@@ -9,7 +9,6 @@ class Agent(gym.Env):
         super().__init__()
         self.env : Environment = gym.make(id='GazeFixEnv',
                                           config = config)
-        
         self.config = config
 
         self.timestep: float = config["timestep"]
@@ -25,19 +24,35 @@ class Agent(gym.Env):
         self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
         if self.observe_distance:
-            self.observation_space = gym.spaces.Box(
-                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
-                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
-                shape=(6 + 3*self.num_obstacles,),
-                dtype=np.float64
-            )
+            if self.use_contingencies:
+                self.observation_space = gym.spaces.Box(
+                    low=np.array([-self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
+                    high=np.array([self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
+                    shape=(5 + 3*self.num_obstacles,),
+                    dtype=np.float64
+                )
+            else:
+                self.observation_space = gym.spaces.Box(
+                    low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
+                    high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
+                    shape=(6 + 3*self.num_obstacles,),
+                    dtype=np.float64
+                )
         else:
-            self.observation_space = gym.spaces.Box(
-                low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
-                high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
-                shape=(5 + 2*self.num_obstacles,),
-                dtype=np.float64
-            )
+            if self.use_contingencies:
+                self.observation_space = gym.spaces.Box(
+                    low=np.array([-self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
+                    high=np.array([self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
+                    shape=(4 + 2*self.num_obstacles,),
+                    dtype=np.float64
+                )
+            else:
+                self.observation_space = gym.spaces.Box(
+                    low=np.array([-self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
+                    high=np.array([np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
+                    shape=(5 + 2*self.num_obstacles,),
+                    dtype=np.float64
+                )
 
         if self.action_mode == 1:
             if self.use_contingencies:
@@ -77,8 +92,8 @@ class Agent(gym.Env):
                 action = c.contingent_action(self.state, action)
         obs, reward, done, truncated, info = self.env.step(action)
         self.total_reward += reward
-        self._get_state(obs)
-        return self.state, reward, done, truncated, info
+        state = self._get_state(obs)
+        return state, reward, done, truncated, info
 
     def reset(self, seed=None, **kwargs):
         if seed is not None:
@@ -106,7 +121,10 @@ class Agent(gym.Env):
         vel_rot = (self.history[1][0]-self.history[0][0])/self.timestep
         self.state = np.concatenate([observation, np.array([vel_rot])])
 
-        return self.state
+        if self.use_contingencies:
+            return self.state[1:]
+        else:
+            return self.state
             
     def env_attr(self, attr):
         return self.env.get_wrapper_attr(attr)
