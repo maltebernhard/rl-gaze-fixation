@@ -11,6 +11,7 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
+DARK_GREEN = (0, 180, 0)
 LIGHT_RED = (255, 200, 200)
 BLACK = (0, 0, 0)
 GREY = (200, 200, 200)
@@ -314,7 +315,7 @@ class Environment(gym.Env):
                 radius = max(np.random.random() * self.world_size / 6, self.world_size / 15)
                 pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
                 # Ensure the obstacle doesn't spawn too close to robot
-                if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
+                if np.linalg.norm(pos-self.robot.pos) > radius + self.penalty_margin + self.robot.size:
                     self.obstacles.append(Obstacle(radius, pos))
                     break
 
@@ -338,9 +339,9 @@ class Environment(gym.Env):
         # draw target distance margin
         self.transparent_circle(self.target.pos, self.target_distance+self.reward_margin, GREEN)
         # draw target distance
-        pygame.draw.circle(self.viewer, GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
         # draw target
-        pygame.draw.circle(self.viewer, GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
         # draw vision axis
         pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
         # draw Agent
@@ -358,7 +359,7 @@ class Environment(gym.Env):
     def transparent_circle(self, pos, radius, color):
         target_rect = pygame.Rect(self.pxl_coordinates(pos), (0, 0)).inflate((radius*2*self.scale, radius*2*self.scale))
         shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
-        pygame.draw.circle(shape_surf, (color[0],color[1],color[2],70), (radius*self.scale, radius*self.scale), radius*self.scale)
+        pygame.draw.circle(shape_surf, (color[0],color[1],color[2],50), (radius*self.scale, radius*self.scale), radius*self.scale)
         self.viewer.blit(shape_surf, target_rect)
 
     def polar_point(self, angle, distance):

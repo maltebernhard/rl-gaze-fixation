@@ -5,12 +5,17 @@
     - Acceleration in radial and lateral direction
     - Without Gaze Fixation: rotational acceleration
 - Observations:
-    - Orientation offset to target
-    - Robot rotational velocity
-    - Robot radial velocity
-    - Robot lateral velocity
-    - Robot distance error
-    - State estimate: Orientation offset velocity
+    - (1 - Orientation offset to target)
+        - Optional: only if Gaze Fixation is not used
+    - 2 - Robot rotational velocity
+    - 3 - Robot radial velocity
+    - 4 - Robot lateral velocity
+    - (5 - Robot distance error)
+        - Optional: can be turned off to make state partially observed
+    - 6 - State estimate: Orientation offset derivative
+        - only needed for gaze fixation
+    - (7 - obstacles (orientation offset, relative size in camera image, optional: distance))
+
 - Reward:
     - Increasing reward 1/(error + 1) within margin, 0 else, multiplied by timestep
     - Acceleration (energy waste) penalizes the reward slightly

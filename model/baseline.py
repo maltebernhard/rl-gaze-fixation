@@ -61,16 +61,17 @@ class BaselineModel:
         self.state = state
 
         acc_lateral = 1
-        if self.state[4] > eps: acc_frontal = 2
-        elif self.state[4] < 0:
+
+        if self.state[4-int(self.use_contingencies)] > eps: acc_frontal = 2
+        elif self.state[4-int(self.use_contingencies)] < 0:
             acc_frontal = 1
-            if self.state[2] > 0:
+            if self.state[2-int(self.use_contingencies)] > 0:
                 acc_lateral = 0
         else:
             acc_frontal = 1
-            if self.state[2] > 0:
+            if self.state[2-int(self.use_contingencies)] > 0:
                 acc_lateral = 0
-            elif self.state[2] < 0:
+            elif self.state[2-int(self.use_contingencies)] < 0:
                 acc_frontal = 2
 
         if self.use_contingencies: self.action = np.array([acc_frontal, acc_lateral])
