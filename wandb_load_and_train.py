@@ -2,7 +2,7 @@ from datetime import datetime
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
+from stable_baselines3.common.vec_env import DummyVecEnv
 import wandb
 import yaml
 from wandb.integration.sb3 import WandbCallback
@@ -39,13 +39,6 @@ def make_env():
 
 env = DummyVecEnv([make_env])
 
-# env = VecVideoRecorder(
-#     env,
-#     f"videos/{run.id}",
-#     record_video_trigger=lambda x: x % 2000 == 0,
-#     video_length=200,
-# )
-
 model = PPO.load(filename, env.envs[0].env.unwrapped)
 model = Model(env.envs[0].env.unwrapped, model_config, model)
 model.reset()
@@ -57,6 +50,8 @@ model.learn(
         verbose=2,
     ),
 )
+
+model.save()
 
 model.save()
 

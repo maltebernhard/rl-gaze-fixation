@@ -64,12 +64,12 @@ class Model:
     def reset(self):
         set_random_seed(self.config["seed"])
     
-    def run_model(self, num_episodes = 1, print_info = 0, record_video = False):
+    def run_model(self, num_episodes = 1, print_info = 0, record_video = False, video_path = ""):
         try:
             for episode in range(num_episodes):
                 total_reward = 0
                 step = 0
-                obs, info = self.agent.reset(record_video=record_video)
+                obs, info = self.agent.reset(record_video=record_video, video_path=video_path)
                 done = False
                 while not done:
                     action, _states = self.predict(obs)
@@ -96,8 +96,6 @@ class Model:
     def save(self, folder = None):
         if folder is None:
             folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
-        else:
-            folder = "./training_data/" + folder + "/"
         config = self.agent.get_wrapper_attr('config')
         filename = f"{self.model_name}_{self.model_selection}"
         self.model.save(folder + filename)

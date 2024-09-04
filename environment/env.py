@@ -1,3 +1,4 @@
+import os
 from typing import List
 import gymnasium as gym
 import numpy as np
@@ -120,6 +121,7 @@ class Environment(gym.Env):
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
         self.render_relative_to_robot = 2
         self.record_video = False
+        self.video_path = ""
         self.video = None
 
         self.reset(self.config["seed"])
@@ -135,14 +137,16 @@ class Environment(gym.Env):
         self.total_reward += rew
         return obs, rew, done, trun, info
     
-    def reset(self, seed=None, record_video=False, **kwargs):
+    def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
         if seed is not None:
             super().reset(seed=seed)
             np.random.seed(seed)
         if self.video is not None:
-            self.video.export(verbose=False)
+            os.makedirs(self.video_path, exist_ok=True)
+            self.video.export(verbose=True)
             #self.video.compress(target_size = int(self.time/10 * 1024), new_file=True)
         self.record_video = record_video
+        self.video_path = video_path
         self.time = 0.0
         self.num_steps = 0
         self.total_reward = 0.0
@@ -338,7 +342,7 @@ class Environment(gym.Env):
             self.viewer = pygame.display.set_mode((self.screen_size, self.screen_size))
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
-                self.video = vidmaker.Video("vidmaker.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
+                self.video = vidmaker.Video(self.video_path + "GazeFixation.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
         # Fill the screen with white
         self.viewer.fill(GREY)
         # draw fov

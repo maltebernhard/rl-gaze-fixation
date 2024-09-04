@@ -42,4 +42,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(1, 1, False)
+baseline_model.run_model(1, 1, True, "./training_data/test/")

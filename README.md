@@ -23,8 +23,11 @@
 
 ## ToDo
 - think about which observations are relavant to solving the problem
+    - should no history be included whatsoever?
 
-- include video recording
+- adjust obstacle rewards
+
+- link wandb artifacts to their respective runs
 
 - unfair: without gaze fixation, x/y-control may be more efficient at solving the task --> test this
 - Baseline:
@@ -32,7 +35,6 @@
     - alternative baseline: reduce all velocities to 0 when close to target
 
 - Test learning without distance knowledge
-
 
 - Results:
     - document difficulties in generating useful behavior -> too high learning rate

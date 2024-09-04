@@ -95,12 +95,12 @@ class Agent(gym.Env):
         state = self._get_state(obs)
         return state, reward, done, truncated, info
 
-    def reset(self, seed=None, record_video=False, **kwargs):
+    def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
         if seed is not None:
             super().reset(seed=seed)
             np.random.seed(seed)
         self.total_reward = 0.0
-        obs, info = self.env.reset(seed=seed, record_video=record_video, **kwargs)
+        obs, info = self.env.reset(seed=seed, record_video=record_video, video_path=video_path, **kwargs)
         return self._get_state(obs), info
     
     def render(self):

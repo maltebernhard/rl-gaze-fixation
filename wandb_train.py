@@ -2,7 +2,7 @@ from datetime import datetime
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
+from stable_baselines3.common.vec_env import DummyVecEnv
 import wandb
 from wandb.integration.sb3 import WandbCallback
 import yaml
@@ -22,7 +22,7 @@ for run_type in ["CONT","FREE"]:
         env_config["seed"] += 1
         run_name = datetime.today().strftime('%Y-%m-%d_%H-%M')+f"_{run_type}"
         run = wandb.init(
-            project="GazeFixation2d",
+            project="Sandbox",
             name=run_name,
             config=model_config,
             sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
@@ -41,13 +41,6 @@ for run_type in ["CONT","FREE"]:
 
         env = DummyVecEnv([make_env])
 
-        # env = VecVideoRecorder(
-        #     env,
-        #     f"videos/{run.id}",
-        #     record_video_trigger=lambda x: x % 2000 == 0,
-        #     video_length=200,
-        # )
-
         model = PPO(model_config["policy_type"], env, learning_rate=model_config["learning_rate"], verbose=1, seed=model_config["seed"], tensorboard_log=f"runs/{run.id}")
         model = Model(env.envs[0].env.unwrapped, model_config, model)
         model.reset()
@@ -61,14 +54,15 @@ for run_type in ["CONT","FREE"]:
             ),
         )
 
-        model.save(folder = run_name)
+        model.save(folder = "./training_data/" + run_name + "/")
 
-        print("./training_data/" + run_name + "/" + "PPO_2.zip")
+        model.run_model(1, 0, True, "./training_data/" + run_name + "/")
 
         artifact = wandb.Artifact(name = f"{run_name}_model", type = "model")
-        artifact.add_file(local_path = "./training_data/" + run_name + "/" + "PPO_2.zip", name = "PPO_model.zip")
+        artifact.add_file(local_path = "./training_data/" + run_name + "/" + "PPO_2.zip", name = "PPO_2.zip")
         artifact.add_file(local_path = "./training_data/" + run_name + "/" + "env_config.yaml", name = "env_config.yaml")
         artifact.add_file(local_path = "./training_data/" + run_name + "/" + "model_config.yaml", name = "model_config.yaml")
+        artifact.add_file(local_path = "./training_data/" + run_name + "/" + "GazeFixation.mp4", name = "GazeFixation.mp4")
         artifact.save()
         run.log_artifact(artifact)
 
