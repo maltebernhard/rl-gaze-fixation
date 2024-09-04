@@ -2,6 +2,7 @@ from typing import List
 import gymnasium as gym
 import numpy as np
 import pygame
+import vidmaker
 import math
 
 # =====================================================================================================
@@ -67,7 +68,7 @@ class Environment(gym.Env):
         self.action_mode: int = config["action_mode"]
         self.action = np.array([0.0, 0.0, 0.0])
 
-        self.target_distance: float = config["target_distance"]
+        self.target_distance: float = np.random.uniform(low=0.0,high=config["target_distance"])
         self.reward_margin: float = config["reward_margin"]
         self.penalty_margin: float = config["penalty_margin"]
         self.wall_collision: bool = config["wall_collision"]
@@ -86,16 +87,16 @@ class Environment(gym.Env):
 
         if self.observe_distance:
             self.observation_space = gym.spaces.Box(
-                low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance] + [-self.robot.sensor_angle/2, 0.0, -1.0] * self.num_obstacles),
-                high=np.array([np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles),
-                shape=(5 + 3*self.num_obstacles,),
+                low=np.array([self.target_distance, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance] + [-self.robot.sensor_angle/2, 0.0, -1.0] * self.num_obstacles),
+                high=np.array([self.target_distance, np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles),
+                shape=(6 + 3*self.num_obstacles,),
                 dtype=np.float64
             )
         else:
             self.observation_space = gym.spaces.Box(
-                low=np.array([-self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel] + [-self.robot.sensor_angle/2, 0.0] * self.num_obstacles),
-                high=np.array([np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel] + [np.pi, 1.0] * self.num_obstacles),
-                shape=(4 + 2*self.num_obstacles,),
+                low=np.array([self.target_distance, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel] + [-self.robot.sensor_angle/2, 0.0] * self.num_obstacles),
+                high=np.array([self.target_distance, np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel] + [np.pi, 1.0] * self.num_obstacles),
+                shape=(5 + 2*self.num_obstacles,),
                 dtype=np.float64
             )
         
@@ -118,6 +119,8 @@ class Environment(gym.Env):
         self.viewer = None
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
         self.render_relative_to_robot = 2
+        self.record_video = False
+        self.video = None
 
         self.reset(self.config["seed"])
     
@@ -132,10 +135,14 @@ class Environment(gym.Env):
         self.total_reward += rew
         return obs, rew, done, trun, info
     
-    def reset(self, seed=None, **kwargs):
+    def reset(self, seed=None, record_video=False, **kwargs):
         if seed is not None:
             super().reset(seed=seed)
             np.random.seed(seed)
+        if self.video is not None:
+            self.video.export(verbose=False)
+            #self.video.compress(target_size = int(self.time/10 * 1024), new_file=True)
+        self.record_video = record_video
         self.time = 0.0
         self.num_steps = 0
         self.total_reward = 0.0
@@ -144,6 +151,7 @@ class Environment(gym.Env):
         self.collision = False
         self.generate_target()
         self.generate_obstacles()
+
         return self.get_observation(), self.get_info()
     
     def close(self):
@@ -156,9 +164,9 @@ class Environment(gym.Env):
             angle = np.pi
         obstacles = self.observe_obstacles()
         if self.observe_distance:
-            return np.concatenate([np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance]), obstacles])
+            return np.concatenate([np.array([self.target_distance, angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance]), obstacles])
         else:
-            return np.concatenate([np.array([angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1]]), obstacles])
+            return np.concatenate([np.array([self.target_distance, angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1]]), obstacles])
     
     def get_reward(self):
         if self.collision:
@@ -329,6 +337,8 @@ class Environment(gym.Env):
             # set window
             self.viewer = pygame.display.set_mode((self.screen_size, self.screen_size))
             pygame.display.set_caption("Gaze Fixation")
+            if self.record_video:
+                self.video = vidmaker.Video("vidmaker.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
         # Fill the screen with white
         self.viewer.fill(GREY)
         # draw fov
@@ -353,6 +363,8 @@ class Environment(gym.Env):
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
                 self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
         self.display_info()
+        if self.record_video:
+            self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
         pygame.display.flip()
         self.rt_clock.tick(1/self.timestep)
 

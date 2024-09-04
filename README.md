@@ -24,6 +24,8 @@
 ## ToDo
 - think about which observations are relavant to solving the problem
 
+- include video recording
+
 - unfair: without gaze fixation, x/y-control may be more efficient at solving the task --> test this
 - Baseline:
     - improve baseline distance estimation by finding correct alphas

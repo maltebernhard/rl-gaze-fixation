@@ -1,4 +1,5 @@
 from datetime import datetime
+import pygame
 from stable_baselines3 import A2C, DQN, PPO
 from stable_baselines3.common.utils import set_random_seed
 import yaml
@@ -63,12 +64,12 @@ class Model:
     def reset(self):
         set_random_seed(self.config["seed"])
     
-    def run_model(self, num_episodes = 1, print_info = 0):
+    def run_model(self, num_episodes = 1, print_info = 0, record_video = False):
         try:
             for episode in range(num_episodes):
                 total_reward = 0
                 step = 0
-                obs, info = self.agent.reset()
+                obs, info = self.agent.reset(record_video=record_video)
                 done = False
                 while not done:
                     action, _states = self.predict(obs)
@@ -77,6 +78,10 @@ class Model:
                         print(f'Observation: {obs}')
                         print(f'Action:      {action}')
                     obs, reward, done, truncated, info = self.agent.step(action)
+
+                    # if step == 36:
+                    #     pygame.image.save(self.agent.unwrapped.env.viewer, "Test.png")
+
                     if print_info != 0 and step % print_info == 0:
                         print(f'Reward:      {reward}')
                     total_reward += reward

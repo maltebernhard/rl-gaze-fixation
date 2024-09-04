@@ -1,13 +1,14 @@
 import time
 import gymnasium as gym
 import numpy as np
+import yaml
 from model.model import Model
 
 # ============================= config =================================
 
 env_config = {
     "timestep":            0.05,
-    "episode_length":      1.0,
+    "episode_length":      5.0,
     "world_size":          50.0,
     "robot_sensor_angle":  np.pi / 2,
     "robot_max_vel":       8.0,
@@ -20,12 +21,15 @@ env_config = {
     "reward_margin":       10.0,
     "penalty_margin":      5.0,
     "wall_collision":      False,
-    "num_obstacles":       1,
+    "num_obstacles":       3,
     "use_obstacles":       True,
     "use_contingencies":   True,
-    #"seed":               123
-    "seed":                int(time.time())
+    "seed":                129
+    #"seed":                int(time.time())
 }
+
+# with open('./config/env_config.yaml', 'r') as file:
+#     env_config = yaml.load(file, Loader=yaml.SafeLoader)
 
 # ==========================================================================
 
@@ -38,4 +42,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(100, 1)
+baseline_model.run_model(1, 1, False)

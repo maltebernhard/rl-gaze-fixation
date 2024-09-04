@@ -17,7 +17,7 @@ class GazeFixation(Contingency):
         self.epsilon = timestep * max_acc_rot * 0.5
 
     def contingent_action(self, obs, act):
-        vel_rot_desired = self.compute_target_vel(obs[0])
+        vel_rot_desired = self.compute_target_vel(obs[1])
         if self.action_mode == 1:
             return np.concatenate([act, np.array([self.pd_control((vel_rot_desired-obs[-1]), obs[-1])])])
         elif self.action_mode == 2:
