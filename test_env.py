@@ -10,7 +10,7 @@ env_config = {
     "timestep":            0.05,
     "episode_length":      5.0,
     "world_size":          50.0,
-    "robot_sensor_angle":  np.pi / 2,
+    "robot_sensor_angle":  np.pi * 1.5,
     "robot_max_vel":       8.0,
     "robot_max_vel_rot":   3.0,
     "robot_max_acc":       8.0,
@@ -42,4 +42,4 @@ np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
 baseline_model = Model(env, {"model_selection":0})
 
-baseline_model.run_model(1, 1, True, "./training_data/test/")
+baseline_model.run_model(1, 1, False)

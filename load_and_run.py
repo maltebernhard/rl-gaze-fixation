@@ -22,4 +22,4 @@ model = Model(env, model_config)
 
 model.load(filename)
 
-model.run_model(3,1)
+model.run_model(5,1)

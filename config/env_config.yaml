@@ -14,9 +14,9 @@ wall_collision:     false
 
 
 # number of obstacles in observation space
-num_obstacles:      0
+num_obstacles:      1
 # use or not
-use_obstacles:      true
+use_obstacles:      false
 
 
 # maximum target_distance as objective (minimum is 0.0, uniform sampling)

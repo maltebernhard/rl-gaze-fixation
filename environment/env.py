@@ -88,15 +88,15 @@ class Environment(gym.Env):
 
         if self.observe_distance:
             self.observation_space = gym.spaces.Box(
-                low=np.array([self.target_distance, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance] + [-self.robot.sensor_angle/2, 0.0, -1.0] * self.num_obstacles),
-                high=np.array([self.target_distance, np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles),
+                low=np.array([0.0, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance] + [-self.robot.sensor_angle/2, 0.0, -1.0] * self.num_obstacles),
+                high=np.array([config["target_distance"], np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles),
                 shape=(6 + 3*self.num_obstacles,),
                 dtype=np.float64
             )
         else:
             self.observation_space = gym.spaces.Box(
-                low=np.array([self.target_distance, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel] + [-self.robot.sensor_angle/2, 0.0] * self.num_obstacles),
-                high=np.array([self.target_distance, np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel] + [np.pi, 1.0] * self.num_obstacles),
+                low=np.array([0.0, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel] + [-self.robot.sensor_angle/2, 0.0] * self.num_obstacles),
+                high=np.array([config["target_distance"], np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel] + [np.pi, 1.0] * self.num_obstacles),
                 shape=(5 + 2*self.num_obstacles,),
                 dtype=np.float64
             )
@@ -174,7 +174,7 @@ class Environment(gym.Env):
     
     def get_reward(self):
         if self.collision:
-            return - self.total_reward - 1.0
+            return - 1.0
             #return - self.total_reward - self.episode_length
         reward = 0.0
         # reward for being close to target distance
@@ -186,7 +186,7 @@ class Environment(gym.Env):
             for obstacle in self.obstacles:
                 dist = np.linalg.norm(self.robot.pos-obstacle.pos)
                 if abs(dist-obstacle.radius) < self.penalty_margin:
-                    reward -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep
+                    reward -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / 10
         # penalize energy waste
         reward -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 5
         reward -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 5
@@ -343,12 +343,9 @@ class Environment(gym.Env):
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
                 self.video = vidmaker.Video(self.video_path + "GazeFixation.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
-        # Fill the screen with white
+        # Fill the screen
         self.viewer.fill(GREY)
-        # draw fov
-        # TODO: Consider larger FOV's?
-        if self.robot.sensor_angle < np.pi: pygame.draw.polygon(self.viewer, WHITE, [self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3)), self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))])
-        else: self.viewer.fill(WHITE)
+        self.draw_fov()
         self.render_grid()
         # draw target distance margin
         self.transparent_circle(self.target.pos, self.target_distance+self.reward_margin, GREEN)
@@ -377,6 +374,24 @@ class Environment(gym.Env):
         shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
         pygame.draw.circle(shape_surf, (color[0],color[1],color[2],50), (radius*self.scale, radius*self.scale), radius*self.scale)
         self.viewer.blit(shape_surf, target_rect)
+
+    def draw_fov(self):
+        if self.robot.sensor_angle < np.pi:
+            robot_point = self.pxl_coordinates(self.robot.pos)
+            left_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3))
+            right_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))
+            left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/4, self.world_size))
+            right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/4, self.world_size))
+            pygame.draw.polygon(self.viewer, WHITE, [robot_point, left_angle, left_corner, right_corner, right_angle])
+        else:
+            # TODO: Invert
+            self.viewer.fill(WHITE)
+            robot_point = self.pxl_coordinates(self.robot.pos)
+            left_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3))
+            right_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))
+            left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+3*np.pi/4, self.world_size))
+            right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-3*np.pi/4, self.world_size))
+            pygame.draw.polygon(self.viewer, GREY, [robot_point, left_angle, left_corner, right_corner, right_angle])
 
     def polar_point(self, angle, distance):
         return self.robot.pos[0] + distance * math.cos(angle), self.robot.pos[1] + distance * math.sin(angle)

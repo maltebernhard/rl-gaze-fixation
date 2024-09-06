@@ -22,19 +22,27 @@
     - Every second spent at optimal distance to target yields reward 1
 
 ## ToDo
+
+- manifold representation
+    - define space
+    - visualize
+
+- multi contingencies
+    - make mixture of obstacle avoidance and gf possible
+    - contingency:
+        - the closer, the slower the radial velocity
+            - does not conflict with gaze fixation, as different action space dimensions are adressed
+        - what if radial velocity is negative?
+        - what if distance is large --> we don't need to approach obstacle
+        - IF radial velocity is positive, reduce it by size of obstacle in fov?
+        
+
 - think about which observations are relavant to solving the problem
     - should no history be included whatsoever?
 
-- adjust obstacle rewards
-
-- link wandb artifacts to their respective runs
-
-- unfair: without gaze fixation, x/y-control may be more efficient at solving the task --> test this
 - Baseline:
     - improve baseline distance estimation by finding correct alphas
     - alternative baseline: reduce all velocities to 0 when close to target
-
-- Test learning without distance knowledge
 
 - Results:
     - document difficulties in generating useful behavior -> too high learning rate
@@ -43,6 +51,4 @@
     - make distance to target time-variant and include in observations / exclude from config
     - make target move through space
 - Obstacles
-    - include in representation
-    - long run: make robot be unable to see past obstacles
-- rework load_and_run
+    - rethink representation
