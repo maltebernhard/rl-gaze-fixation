@@ -5,7 +5,7 @@ from stable_baselines3.common.utils import set_random_seed
 import yaml
 from environment.agent import Agent
 from model.baseline import BaselineModel
-from plotting.plotting import PlottingCallback
+from training_logging.plotting import PlottingCallback
 
 # =======================================================
 
@@ -97,7 +97,7 @@ class Model:
         if folder is None:
             folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
         config = self.agent.get_wrapper_attr('config')
-        filename = f"{self.model_name}_{self.model_selection}"
+        filename = "model"
         self.model.save(folder + filename)
         with open(folder + 'env_config.yaml', 'w') as file:
             yaml.dump(config, file, default_flow_style=False)

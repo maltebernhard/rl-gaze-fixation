@@ -3,7 +3,7 @@ import math
 import numpy as np
 from environment.agent import Agent
 
-from plotting.plotting import PlottingCallback
+from training_logging.plotting import PlottingCallback
 
 class BaselineModel:
     def __init__(self, env: Agent):

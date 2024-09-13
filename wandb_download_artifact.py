@@ -1,7 +1,9 @@
 import wandb
 
-api = wandb.Api()
-artifact = api.artifact("rbo-malte/Sandbox/2024-09-04_20-23_FREE_model:v0")
+project_name = "Sandbox"
+artifact_name = "2024-09-04_20-23_FREE"
 
-artifact.download("./training_data/2024-09-04_20-23_FREE")
+api = wandb.Api()
+artifact = api.artifact("rbo-malte/" + project_name + "/" + artifact_name + "_model" + ":latest")
+artifact.download("./training_data/" + artifact_name + "/")
 

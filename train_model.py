@@ -2,7 +2,7 @@ import gymnasium as gym
 import yaml
 from helpers import user_prompt
 from model.model import Model
-from plotting.plotting import plot_training_progress
+from training_logging.plotting import plot_training_progress
 
 # ==============================================================
 
