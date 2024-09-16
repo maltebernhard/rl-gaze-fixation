@@ -19,9 +19,9 @@ class GazeFixation(Contingency):
     def contingent_action(self, obs, act):
         vel_rot_desired = self.compute_target_vel(obs[1])
         if self.action_mode == 1:
-            return np.concatenate([act, np.array([self.pd_control((vel_rot_desired-obs[-1]), obs[-1])])])
+            return np.concatenate([act, np.array([self.pd_control((vel_rot_desired-obs[2]), obs[2])])])
         elif self.action_mode == 2:
-            return np.concatenate([act, np.array([self.flip_control(vel_rot_desired, obs[-1], self.epsilon)])])
+            return np.concatenate([act, np.array([self.flip_control(vel_rot_desired, obs[2], self.epsilon)])])
         
     def flip_control(self, target, current, eps):
         action = 1

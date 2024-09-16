@@ -70,6 +70,8 @@ class Model:
                 total_reward = 0
                 step = 0
                 obs, info = self.agent.reset(record_video=record_video, video_path=video_path)
+                print(f'-------------------- Reset ----------------------')
+                print(f'Observation: {obs}')
                 done = False
                 while not done:
                     action, _states = self.predict(obs)

@@ -1,8 +1,8 @@
 import numpy as np
-from typing import List
+from typing import Dict, List
 import gymnasium as gym
 from contingency.contingency import GazeFixation
-from environment.env import Environment
+from environment.env import Environment, Observation
 
 class Agent(gym.Env):
     def __init__(self, config: dict):
@@ -14,7 +14,7 @@ class Agent(gym.Env):
         self.timestep: float = config["timestep"]
         self.observe_distance: float = config["observe_distance"]
         self.action_mode: int = config["action_mode"]
-        self.target_distance: float = self.env.unwrapped.target_distance
+        self.max_target_distance: float = self.env.unwrapped.max_target_distance
         self.wall_collision: bool = config["wall_collision"]
         self.num_obstacles: bool = config["num_obstacles"]
 
@@ -23,36 +23,18 @@ class Agent(gym.Env):
         self.use_contingencies = config["use_contingencies"]
         self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
-        if self.observe_distance:
-            if self.use_contingencies:
-                self.observation_space = gym.spaces.Box(
-                    low=np.array([0.0, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
-                    high=np.array([config["target_distance"], self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
-                    shape=(6 + 3*self.num_obstacles,),
-                    dtype=np.float64
-                )
-            else:
-                self.observation_space = gym.spaces.Box(
-                    low=np.array([0.0, -self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"], -self.config["target_distance"]] + [-self.config["robot_sensor_angle"]/2, 0.0, -1.0] * self.num_obstacles + [-np.inf]),
-                    high=np.array([config["target_distance"], np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"], np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles + [np.inf]),
-                    shape=(7 + 3*self.num_obstacles,),
-                    dtype=np.float64
-                )
-        else:
-            if self.use_contingencies:
-                self.observation_space = gym.spaces.Box(
-                    low=np.array([0.0, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
-                    high=np.array([config["target_distance"], self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
-                    shape=(5 + 2*self.num_obstacles,),
-                    dtype=np.float64
-                )
-            else:
-                self.observation_space = gym.spaces.Box(
-                    low=np.array([0.0, -self.config["robot_sensor_angle"]/2, -self.config["robot_max_vel_rot"], -self.config["robot_max_vel"], -self.config["robot_max_vel"]] + [-self.config["robot_sensor_angle"]/2, 0.0] * self.num_obstacles + [-np.inf]),
-                    high=np.array([config["target_distance"], np.pi, self.config["robot_max_vel_rot"], self.config["robot_max_vel"], self.config["robot_max_vel"]] + [np.pi, 1.0] * self.num_obstacles + [np.inf]),
-                    shape=(6 + 2*self.num_obstacles,),
-                    dtype=np.float64
-                )
+        self.observations: Dict[str, Observation] = self.env.unwrapped.observations.copy()
+
+        if self.use_contingencies:
+            self.observations.pop("target_offset_angle")
+            self.observations.pop("del_target_offset_angle")
+
+        self.observation_space = gym.spaces.Box(
+            low=np.array([obs.low for obs in self.observations.values()]),
+            high=np.array([obs.high for obs in self.observations.values()]),
+            shape=(len(self.observations),),
+            dtype=np.float64
+        )
 
         if self.action_mode == 1:
             if self.use_contingencies:
@@ -111,18 +93,14 @@ class Agent(gym.Env):
 
     def _get_state(self, observation):
         # add observation to history
-        if len(self.history) == self.history_len:
-            self.history.pop()
-        self.history.insert(0,observation)
-        if len(self.history) == 1:
+        while len(self.history) < self.history_len + 1:
             self.history.insert(0,observation)
+        self.history.pop()
 
-        # relative rotational velocity of target
-        vel_rot = (self.history[1][1]-self.history[0][1])/self.timestep
-        self.state = np.concatenate([observation, np.array([vel_rot])])
+        self.state = observation
 
         if self.use_contingencies:
-            return np.concatenate([self.state[:1], self.state[2:]])
+            return np.concatenate([self.state[:1], self.state[3:]])
         else:
             return self.state
             

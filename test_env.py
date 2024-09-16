@@ -10,7 +10,7 @@ env_config = {
     "timestep":            0.05,
     "episode_length":      5.0,
     "world_size":          50.0,
-    "robot_sensor_angle":  np.pi * 1.5,
+    "robot_sensor_angle":  np.pi * 2.0,
     "robot_max_vel":       8.0,
     "robot_max_vel_rot":   3.0,
     "robot_max_acc":       8.0,
@@ -24,7 +24,7 @@ env_config = {
     "num_obstacles":       3,
     "use_obstacles":       True,
     "use_contingencies":   True,
-    "seed":                129
+    "seed":                140
     #"seed":                int(time.time())
 }
 

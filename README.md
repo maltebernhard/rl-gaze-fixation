@@ -27,6 +27,12 @@
     - define space
     - visualize
 
+- mixture of experts
+    - decouple agent and environment concept, so that an agent actually represents a decision maker (controller or policy)
+    - implement mixture model
+        - each agent outputs mean and stddev for each action space dimension,
+        - weighting function learns matrix for each dimension / agent
+
 - multi contingencies
     - make mixture of obstacle avoidance and gf possible
     - contingency:

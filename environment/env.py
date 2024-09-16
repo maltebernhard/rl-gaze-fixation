@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import Dict, List
 import gymnasium as gym
 import numpy as np
 import pygame
@@ -48,9 +48,20 @@ class Obstacle:
         self.pos: np.ndarray = pos
 
 class Target:
-    def __init__(self, x=0.0, y=0.0):
+    def __init__(self, x=0.0, y=0.0, distance=0.0):
         self.pos = np.array([x, y], dtype=np.float64)
         self.vel = np.array([0.0, 0.0], dtype=np.float64)
+        self.distance = distance
+
+class Observation:
+    def __init__(self, low, high, callable) -> None:
+        self.low = low
+        self.high = high
+        self.calculate = callable
+
+    def calculate_value(self):
+        self.value = self.calculate()
+        return self.value
 
 # =====================================================================================================
 
@@ -69,7 +80,7 @@ class Environment(gym.Env):
         self.action_mode: int = config["action_mode"]
         self.action = np.array([0.0, 0.0, 0.0])
 
-        self.target_distance: float = np.random.uniform(low=0.0,high=config["target_distance"])
+        self.max_target_distance: float = config["target_distance"]
         self.reward_margin: float = config["reward_margin"]
         self.penalty_margin: float = config["penalty_margin"]
         self.wall_collision: bool = config["wall_collision"]
@@ -86,33 +97,10 @@ class Environment(gym.Env):
         self.generate_target()
         self.generate_obstacles()
 
-        if self.observe_distance:
-            self.observation_space = gym.spaces.Box(
-                low=np.array([0.0, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel, -self.target_distance] + [-self.robot.sensor_angle/2, 0.0, -1.0] * self.num_obstacles),
-                high=np.array([config["target_distance"], np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel, np.inf] + [np.pi, 1.0, np.inf] * self.num_obstacles),
-                shape=(6 + 3*self.num_obstacles,),
-                dtype=np.float64
-            )
-        else:
-            self.observation_space = gym.spaces.Box(
-                low=np.array([0.0, -self.robot.sensor_angle/2, -self.robot.max_vel_rot, -self.robot.max_vel, -self.robot.max_vel] + [-self.robot.sensor_angle/2, 0.0] * self.num_obstacles),
-                high=np.array([config["target_distance"], np.pi, self.robot.max_vel_rot, self.robot.max_vel, self.robot.max_vel] + [np.pi, 1.0] * self.num_obstacles),
-                shape=(5 + 2*self.num_obstacles,),
-                dtype=np.float64
-            )
-        
-        if self.action_mode == 1:
-            self.action_space = gym.spaces.Box(
-                low=np.array([-self.robot.max_acc, -self.robot.max_acc, -self.robot.max_acc_rot]),
-                high=np.array([self.robot.max_acc, self.robot.max_acc, self.robot.max_acc_rot]),
-                shape=(3,),
-                dtype=np.float64
-            )
-        elif self.action_mode == 2:
-            self.action_space = gym.spaces.MultiDiscrete(
-                np.array([3, 3, 3])
-            )
-        else: raise NotImplementedError
+        self.history = []
+
+        self.generate_observation_space()
+        self.generate_action_space()
 
         self.collision: bool = False
 
@@ -134,6 +122,12 @@ class Environment(gym.Env):
         self.move_robot(action)
         self.move_target()
         obs, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
+
+        # add observation to history
+        self.history.insert(0, obs)
+        if len(self.history) > 2:
+            self.history.pop()
+
         self.total_reward += rew
         return obs, rew, done, trun, info
     
@@ -151,27 +145,27 @@ class Environment(gym.Env):
         self.num_steps = 0
         self.total_reward = 0.0
         self.action = np.array([0.0, 0.0, 0.0])
+        self.history = []
         self.robot.reset()
         self.collision = False
         self.generate_target()
         self.generate_obstacles()
 
-        return self.get_observation(), self.get_info()
+        obs, info = self.get_observation(), self.get_info()
+        self.history.append(obs)
+
+        return obs, info
     
     def close(self):
         pygame.quit()
         self.screen = None
         
     def get_observation(self):
-        angle = self.normalize_angle(np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) - self.robot.orientation)
-        if not (angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2):
-            angle = np.pi
-        obstacles = self.observe_obstacles()
-        if self.observe_distance:
-            return np.concatenate([np.array([self.target_distance, angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1], self.robot_target_distance()-self.target_distance]), obstacles])
-        else:
-            return np.concatenate([np.array([self.target_distance, angle, self.robot.vel_rot, self.robot.vel[0], self.robot.vel[1]]), obstacles])
-    
+        observation = []
+        for obs in self.observations.values():
+            observation.append(obs.calculate_value())
+        return np.array(observation)
+        
     def get_reward(self):
         if self.collision:
             return - 1.0
@@ -179,8 +173,8 @@ class Environment(gym.Env):
         reward = 0.0
         # reward for being close to target distance
         dist = self.robot_target_distance()
-        if abs(dist-self.target_distance) < self.reward_margin:
-            reward += 1.0 / (abs(dist-self.target_distance) + 1.0) * self.timestep
+        if abs(dist-self.target.distance) < self.reward_margin:
+            reward += 1.0 / (abs(dist-self.target.distance) + 1.0) * self.timestep
         # penalty for being close to obstacle
         if self.use_obstacles:
             for obstacle in self.obstacles:
@@ -197,6 +191,46 @@ class Environment(gym.Env):
     
     def get_info(self):
         return {}
+    
+    # ------------------------------------------------------------------------------------------
+
+    def generate_observation_space(self):
+        self.observations: Dict[str, Observation] = {
+            "target_distance" :         Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
+            "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target.pos)),
+            "del_target_offset_angle" : Observation(-2*np.pi/self.timestep, 2*np.pi/self.timestep, lambda: self.compute_del_offset_angle(self.compute_offset_angle(self.target.pos))),
+            "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
+            "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
+            "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
+        }
+        if self.observe_distance:
+            self.observations["robot_target_distance"] = Observation(0.0, np.inf, lambda: self.robot_target_distance())
+        for o in range(self.num_obstacles):
+            self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.obstacles[o].pos))
+            self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda: self.calculate_circle_coverage(self.obstacles[o]))
+            if self.observe_distance:
+                self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
+        
+        self.observation_space = gym.spaces.Box(
+            low=np.array([obs.low for obs in self.observations.values()]),
+            high=np.array([obs.high for obs in self.observations.values()]),
+            shape=(len(self.observations),),
+            dtype=np.float64
+        )
+
+    def generate_action_space(self):
+        if self.action_mode == 1:
+            self.action_space = gym.spaces.Box(
+                low=np.array([-self.robot.max_acc, -self.robot.max_acc, -self.robot.max_acc_rot]),
+                high=np.array([self.robot.max_acc, self.robot.max_acc, self.robot.max_acc_rot]),
+                shape=(3,),
+                dtype=np.float64
+            )
+        elif self.action_mode == 2:
+            self.action_space = gym.spaces.MultiDiscrete(
+                np.array([3, 3, 3])
+            )
+        else: raise NotImplementedError
     
     # -------------------------------------- helpers -------------------------------------------
 
@@ -247,7 +281,7 @@ class Environment(gym.Env):
     def check_collision(self):
         if self.use_obstacles:
             for o in self.obstacles:
-                if np.linalg.norm(np.array([o.pos[0]-self.robot.pos[0],o.pos[1]-self.robot.pos[1]])) < o.radius + self.robot.size / 2:
+                if np.linalg.norm(o.pos-self.robot.pos) < o.radius + self.robot.size / 2:
                     self.collision = True
                     return
         if self.wall_collision:
@@ -292,6 +326,17 @@ class Environment(gym.Env):
             obstacles = self.num_obstacles * obs
         return np.array(obstacles)  
 
+    def compute_offset_angle(self, pos):
+        angle = self.normalize_angle(np.arctan2(pos[1]-self.robot.pos[1], pos[0]-self.robot.pos[0]) - self.robot.orientation)
+        if not (angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2):
+            angle = np.pi
+        return angle
+    
+    def compute_del_offset_angle(self, angle):
+        if len(self.history) > 0:
+            return (self.history[0][1]-angle)/self.timestep
+        return 0.0
+
     def robot_target_distance(self):
         return np.linalg.norm(self.target.pos-self.robot.pos)
     
@@ -315,7 +360,7 @@ class Environment(gym.Env):
         angle = np.random.uniform(-np.pi/2, np.pi/2)
         x = distance * np.cos(angle)
         y = distance * np.sin(angle)
-        self.target = Target(x, y)
+        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance))
     
     def generate_obstacles(self):
         self.obstacles = []
@@ -348,9 +393,9 @@ class Environment(gym.Env):
         self.draw_fov()
         self.render_grid()
         # draw target distance margin
-        self.transparent_circle(self.target.pos, self.target_distance+self.reward_margin, GREEN)
+        self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
         # draw target distance
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target_distance*self.scale, width=1)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
         # draw target
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
         # draw vision axis
@@ -383,8 +428,9 @@ class Environment(gym.Env):
             left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/4, self.world_size))
             right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/4, self.world_size))
             pygame.draw.polygon(self.viewer, WHITE, [robot_point, left_angle, left_corner, right_corner, right_angle])
+        elif self.robot.sensor_angle == 2*np.pi:
+            self.viewer.fill(WHITE)
         else:
-            # TODO: Invert
             self.viewer.fill(WHITE)
             robot_point = self.pxl_coordinates(self.robot.pos)
             left_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3))
