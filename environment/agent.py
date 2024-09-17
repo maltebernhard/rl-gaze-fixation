@@ -24,6 +24,7 @@ class Agent(gym.Env):
         self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
         self.observations: Dict[str, Observation] = self.env.unwrapped.observations.copy()
+        print(self.observations.keys())
 
         if self.use_contingencies:
             self.observations.pop("target_offset_angle")
@@ -39,15 +40,15 @@ class Agent(gym.Env):
         if self.action_mode == 1:
             if self.use_contingencies:
                 self.action_space = gym.spaces.Box(
-                    low=np.array([-self.config["robot_max_acc"]]*2),
-                    high=np.array([self.config["robot_max_acc"]]*2),
+                    low=np.array([-1.0]*2),
+                    high=np.array([1.0]*2),
                     shape=(2,),
                     dtype=np.float32
                 )
             else:
                 self.action_space = gym.spaces.Box(
-                    low=np.array(([-self.config["robot_max_acc"], -self.config["robot_max_acc"], -self.config["robot_max_acc_rot"]])),
-                    high=np.array(([self.config["robot_max_acc"], self.config["robot_max_acc"], self.config["robot_max_acc_rot"]])),
+                    low=np.array([-1.0]*3),
+                    high=np.array([1.0]*3),
                     shape=(3,),
                     dtype=np.float32
                 )

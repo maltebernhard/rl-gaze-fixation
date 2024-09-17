@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 from environment.agent import Agent
 

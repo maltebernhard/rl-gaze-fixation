@@ -1,0 +1,11 @@
+agent:
+  moe:
+    agents:
+      - contingency:
+        policy:
+          type: PPO
+          
+      - contingency:
+        policy:
+          type: PPO
+    

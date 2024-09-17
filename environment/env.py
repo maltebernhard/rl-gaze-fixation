@@ -118,7 +118,9 @@ class Environment(gym.Env):
         self.num_steps += 1
         self.time += self.timestep
         if self.action_mode == 1:
+            action = np.array([action[0]*self.robot.max_acc, action[1]*self.robot.max_acc, action[2]*self.robot.max_acc_rot])
             self.action = self.validate_action(action) # make sure acceleration vector is within bounds
+            action = self.action
         self.move_robot(action)
         self.move_target()
         obs, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
@@ -198,19 +200,20 @@ class Environment(gym.Env):
         self.observations: Dict[str, Observation] = {
             "target_distance" :         Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
             "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target.pos)),
-            "del_target_offset_angle" : Observation(-2*np.pi/self.timestep, 2*np.pi/self.timestep, lambda: self.compute_del_offset_angle(self.compute_offset_angle(self.target.pos))),
-            "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
-            "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
-            "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
+            "del_target_offset_angle" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_del_offset_angle(self.compute_offset_angle(self.target.pos))),
+            "vel_rot" :                 Observation(-1.0, 1.0, lambda: self.robot.vel_rot/self.robot.max_vel_rot),
+            "vel_frontal" :             Observation(-1.0, 1.0, lambda: self.robot.vel[0]/self.robot.max_vel),
+            "vel_lateral" :             Observation(-1.0, 1.0, lambda: self.robot.vel[1]/self.robot.max_vel),
         }
         if self.observe_distance:
             self.observations["robot_target_distance"] = Observation(0.0, np.inf, lambda: self.robot_target_distance())
+
         for o in range(self.num_obstacles):
-            self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.obstacles[o].pos))
-            self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda: self.calculate_circle_coverage(self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o].pos))
+            self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda o=o: self.calculate_circle_coverage(self.obstacles[o]))
             if self.observe_distance:
-                self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
-        
+                self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
+
         self.observation_space = gym.spaces.Box(
             low=np.array([obs.low for obs in self.observations.values()]),
             high=np.array([obs.high for obs in self.observations.values()]),
@@ -221,8 +224,8 @@ class Environment(gym.Env):
     def generate_action_space(self):
         if self.action_mode == 1:
             self.action_space = gym.spaces.Box(
-                low=np.array([-self.robot.max_acc, -self.robot.max_acc, -self.robot.max_acc_rot]),
-                high=np.array([self.robot.max_acc, self.robot.max_acc, self.robot.max_acc_rot]),
+                low=np.array([-1.0]*3),
+                high=np.array([1.0]*3),
                 shape=(3,),
                 dtype=np.float64
             )
@@ -334,7 +337,7 @@ class Environment(gym.Env):
     
     def compute_del_offset_angle(self, angle):
         if len(self.history) > 0:
-            return (self.history[0][1]-angle)/self.timestep
+            return (self.history[0][1]-angle)/self.timestep/self.robot.max_vel_rot
         return 0.0
 
     def robot_target_distance(self):
@@ -408,6 +411,9 @@ class Environment(gym.Env):
             for o in self.obstacles:
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
                 self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
+        # draw an arrow for the robot's action
+        pygame.draw.line(self.viewer, RED, self.pxl_coordinates(self.robot.pos), self.pxl_coordinates(self.polar_point(self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*2)))
+
         self.display_info()
         if self.record_video:
             self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
