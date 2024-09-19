@@ -123,15 +123,15 @@ class Environment(gym.Env):
             action = self.action
         self.move_robot(action)
         self.move_target()
-        obs, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
+        self.last_observation, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
-        self.history.insert(0, obs)
+        self.history.insert(0, self.last_observation)
         if len(self.history) > 2:
             self.history.pop()
 
         self.total_reward += rew
-        return obs, rew, done, trun, info
+        return self.last_observation, rew, done, trun, info
     
     def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
         if seed is not None:
@@ -153,10 +153,10 @@ class Environment(gym.Env):
         self.generate_target()
         self.generate_obstacles()
 
-        obs, info = self.get_observation(), self.get_info()
-        self.history.append(obs)
+        self.last_observation, info = self.get_observation(), self.get_info()
+        self.history.append(self.last_observation)
 
-        return obs, info
+        return self.last_observation, info
     
     def close(self):
         pygame.quit()
@@ -194,6 +194,12 @@ class Environment(gym.Env):
     def get_info(self):
         return {}
     
+    def step_full_observation(self, action):
+        return self.step(action)
+    
+    def reset_full_observation(self, seed=None, **kwargs):
+        return self.reset(seed=seed, **kwargs)
+    
     # ------------------------------------------------------------------------------------------
 
     def generate_observation_space(self):
@@ -215,6 +221,7 @@ class Environment(gym.Env):
                 self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
+        self.last_observation = None
 
         self.observation_space = gym.spaces.Box(
             low=np.array([obs.low for obs in self.observations.values()]),

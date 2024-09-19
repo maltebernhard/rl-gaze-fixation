@@ -3,7 +3,7 @@ from environment.agent import Agent
 
 from training_logging.plotting import PlottingCallback
 
-class BaselineModel:
+class TargetDistanceBaselineModel:
     def __init__(self, env: Agent):
         self.env = env
         self.action_mode = self.env.unwrapped.action_mode

@@ -3,7 +3,7 @@ from stable_baselines3 import PPO
 import yaml
 from helpers import prompt_zip_file_selection, user_prompt
 from model.model import Model
-from plotting.plotting import plot_training_progress
+from training_logging.plotting import plot_training_progress
 
 # ==============================================================
 

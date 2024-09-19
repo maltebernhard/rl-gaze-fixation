@@ -4,7 +4,7 @@ from stable_baselines3 import A2C, DQN, PPO
 from stable_baselines3.common.utils import set_random_seed
 import yaml
 from environment.agent import Agent
-from model.baseline import BaselineModel
+from model.target_distance_baseline import TargetDistanceBaselineModel
 from training_logging.plotting import PlottingCallback
 
 # =======================================================
@@ -28,7 +28,7 @@ class Model:
     def set_model(self):
         # Define the model
         if self.model_selection == 0:
-            self.model = BaselineModel(self.agent)
+            self.model = TargetDistanceBaselineModel(self.agent)
         elif self.model_selection == 1:
             self.model = DQN(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["seed"])
         elif self.model_selection == 2:
