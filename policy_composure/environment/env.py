@@ -65,7 +65,7 @@ class Observation:
 
 # =====================================================================================================
 
-class Environment(gym.Env):
+class GazeFixEnv(gym.Env):
     def __init__(self, config: dict):
         super().__init__()
         self.config = config

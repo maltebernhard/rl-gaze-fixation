@@ -54,6 +54,33 @@ class Model:
     def __init__(self, env: StructureEnv, config={}) -> None:
         self.env = env
 
+    def learn(self, total_timesteps: int, callback: PlottingCallback):
+        obs, info = self.env.reset()
+        timestep = 0
+        while timestep < total_timesteps:
+            total_reward = 0
+            done = False
+            while not done:
+                action, _states = self.predict(obs, deterministic=True)
+                # print(f'Observation: {obs} | Action: {action}')
+                obs, reward, done, truncated, info = self.env.step(action)
+                callback.locals['rewards'] = [reward]
+                callback.locals['observation'] = obs
+                callback.locals['dones'] = [done]
+                callback._on_step()
+                timestep += 1
+                total_reward += reward
+                if done:
+                    obs, info = self.env.reset()
+            #print("Episode reward: {}".format(total_reward))
+
+    def save(self, file_path: str):
+        pass
+        
+    @classmethod
+    def load(cls, file_path: str):
+        pass
+
 # =============================================================================
 
 class GazeFixationModel(Model):
@@ -106,25 +133,6 @@ class AvoidNearestObstacleModel(Model):
         super().__init__(env)
         self.num_obstacles = self.env.unwrapped.config["num_obstacles"]
         self.action_space_dimensionality = action_space_dimensionality
-        
-    def learn(self, total_timesteps: int, callback: PlottingCallback):
-        obs, info = self.env.reset()
-        timestep = 0
-        while timestep < total_timesteps:
-            total_reward = 0
-            done = False
-            while not done:
-                action, _states = self.predict(obs, deterministic=True)
-                # print(f'Observation: {obs} | Action: {action}')
-                obs, reward, done, truncated, info = self.env.step(action)
-                callback.locals['rewards'] = [reward]
-                callback.locals['dones'] = [done]
-                callback._on_step()
-                timestep += 1
-                total_reward += reward
-                if done:
-                    obs, info = self.env.reset()
-            print("Episode reward: {}".format(total_reward))
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         nearest_obstacle = 0
@@ -140,13 +148,6 @@ class AvoidNearestObstacleModel(Model):
         else:
             raise ValueError("Invalid action space dimensionality")
         return action, []
-        
-    def save(self, file_path: str):
-        pass
-        
-    @classmethod
-    def load(cls, file_path: str):
-        pass
 
 # =============================================================================
 
@@ -154,25 +155,6 @@ class TowardsTargetModel(Model):
     def __init__(self, env: StructureEnv, action_space_dimensionality: int = 3):
         super().__init__(env)
         self.action_space_dimensionality = action_space_dimensionality
-        
-    def learn(self, total_timesteps: int, callback: PlottingCallback):
-        obs, info = self.env.reset()
-        timestep = 0
-        while timestep < total_timesteps:
-            total_reward = 0
-            done = False
-            while not done:
-                action, _states = self.predict(obs, deterministic=True)
-                # print(f'Observation: {obs} | Action: {action}')
-                obs, reward, done, truncated, info = self.env.step(action)
-                callback.locals['rewards'] = [reward]
-                callback.locals['dones'] = [done]
-                callback._on_step()
-                timestep += 1
-                total_reward += reward
-                if done:
-                    obs, info = self.env.reset()
-            print("Episode reward: {}".format(total_reward))
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         offset_angle = state[0]
@@ -184,13 +166,6 @@ class TowardsTargetModel(Model):
         else:
             raise ValueError("Invalid action space dimensionality")
         return action, []
-        
-    def save(self, file_path: str):
-        pass
-        
-    @classmethod
-    def load(cls, file_path: str):
-        pass
 
 # =============================================================================
 
@@ -199,30 +174,11 @@ class TargetFollowingObstacleEvasionMixtureModel(Model):
         super().__init__(env)
         self.mixture_mode = mixture_mode
         self.action_space_dimensionality = action_space_dimensionality
-        
-    def learn(self, total_timesteps: int, callback: PlottingCallback):
-        obs, info = self.env.reset()
-        timestep = 0
-        while timestep < total_timesteps:
-            total_reward = 0
-            done = False
-            while not done:
-                action, _states = self.predict(obs, deterministic=True)
-                # print(f'Observation: {obs} | Action: {action}')
-                obs, reward, done, truncated, info = self.env.step(action)
-                callback.locals['rewards'] = [reward]
-                callback.locals['dones'] = [done]
-                callback._on_step()
-                timestep += 1
-                total_reward += reward
-                if done:
-                    obs, info = self.env.reset()
-            print("Episode reward: {}".format(total_reward))
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         # for states with 3 obstacles, represented by angular offset and fov coverage each
         obstacle = max(max(state[-1], state[-3]), state[-5])
-        relevance_obstacle_evasion = min(obstacle**2 * 15, 1.0)
+        relevance_obstacle_evasion = min(obstacle**2 * 12, 1.0)
         if self.mixture_mode == 1:
             weights = np.array([[relevance_obstacle_evasion], [1.0 - relevance_obstacle_evasion]])
         elif self.mixture_mode == 2:
@@ -245,13 +201,6 @@ class TargetFollowingObstacleEvasionMixtureModel(Model):
         else:
             raise Exception("Mixture mode not supported.")
         return weights.flatten(), []
-        
-    def save(self, file_path: str):
-        pass
-        
-    @classmethod
-    def load(cls, file_path: str):
-        pass
 
 # =============================================================================
 
