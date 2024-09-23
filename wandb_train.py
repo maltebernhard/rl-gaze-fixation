@@ -1,5 +1,5 @@
 import yaml
-from training_logging.wandb import training_run
+from utils.wandb import training_run
 
 # ==============================================================
 

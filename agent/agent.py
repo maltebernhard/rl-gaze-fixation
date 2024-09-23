@@ -6,8 +6,8 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.utils import set_random_seed
 
-from model.model import Model, AvoidNearestObstacleModel, GazeFixationModel, TargetFollowingObstacleEvasionMixtureModel, TowardsTargetModel
-from training_logging.plotting import PlottingCallback
+from agent.model import Model, AvoidNearestObstacleModel, GazeFixationModel, TargetFollowingObstacleEvasionMixtureModel, TowardsTargetModel
+from agent.callback import PlottingCallback
 
 # =======================================================    
 
@@ -15,6 +15,7 @@ class StructureAgent:
     def __init__(self, env: gym.Env, agent_config: dict = None) -> None:
         self.env = env
         self.config = agent_config
+        self.model: Model = None
         self.model_name = agent_config["model_type"]
         self.set_model()
         self.last_action: np.ndarray = None
@@ -24,27 +25,29 @@ class StructureAgent:
     def run(self, prints = False, env_seed = None):
         total_reward = 0
         step = 0
-        obs, info = self.env.unwrapped.reset_full_observation(seed=env_seed)
+        #obs, info = self.env.unwrapped.reset_full_observation(seed=env_seed)
+        obs, info = self.env.unwrapped.reset(seed=env_seed)
         if prints:
             print(f'-------------------- Reset ----------------------')
             print(f'Observation: {obs}')
         done = False
         while not done:
-            action, _states = self.predict_full_observation(obs)
+            #action, _states = self.predict_full_observation(obs)
+            action, _states = self.predict(obs)
             if prints:
                 print(f'-------------------- Step {step} ----------------------')
                 print(f'Observation: {obs}')
                 print(f'Action:      {action}')
-            obs, reward, done, truncated, info = self.env.unwrapped.step_full_observation(action)
-            #obs, reward, done, truncated, info = self.env.step(action)
+            #obs, reward, done, truncated, info = self.env.unwrapped.step_full_observation(action)
+            obs, reward, done, truncated, info = self.env.step(action)
             if prints:
                 print(f'Reward:      {reward}')
             total_reward += reward
             step += 1
             self.env.render()
             if done:
-                obs, info = self.env.reset_full_observation()
-                #obs, info = self.env.reset()
+                #obs, info = self.env.reset_full_observation()
+                obs, info = self.env.reset()
         print(f"Episode finished with total reward {total_reward}")
 
     def set_observation_space(self, observation_keys: List[str] = None) -> None:
@@ -58,6 +61,8 @@ class StructureAgent:
                 observation_indices.append(index)
             index += 1
         self.observation_indices = np.array(observation_indices)
+        print("Observation space: ", [key for key in self.env.get_wrapper_attr("observations").keys()])
+        print("Observations: ", self.observation_indices)
 
     def learn(self, total_timesteps) -> None:
         self.model.learn(total_timesteps=total_timesteps, callback=self.callback)

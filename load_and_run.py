@@ -1,7 +1,7 @@
 import gymnasium as gym
 import yaml
-from helpers import prompt_zip_file_selection
-from model.model import Model
+from utils.user_interface import prompt_zip_file_selection
+from model.OLD_model import Model
 
 # ==============================================
 

@@ -2,7 +2,8 @@ import time
 import gymnasium as gym
 import numpy as np
 import yaml
-from model.model import Model
+import environment
+from agent.OLD_model import Model
 
 # ============================= config =================================
 

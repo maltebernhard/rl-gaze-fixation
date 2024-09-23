@@ -1,19 +1,22 @@
 import gymnasium as gym
 import yaml
-from helpers import user_prompt
-from model.model import Model
-from training_logging.plotting import plot_training_progress
+import environment
+from utils.user_interface import user_prompt
+from model.OLD_model import Model
+from utils.plotting import plot_training_progress
 
 # ==============================================================
 
 with open('./config/env_config.yaml', 'r') as file:
     env_config = yaml.load(file, Loader=yaml.SafeLoader)
-with open('./config/model_config.yaml', 'r') as file:
+with open('./config/OLD_model_config.yaml', 'r') as file:
     model_config = yaml.load(file, Loader=yaml.SafeLoader)
     model_selection = model_config["model_selection"]
 
-env = gym.make(id = 'GazeFixAgent',
-               config = env_config)
+env = gym.make(
+    id = 'GazeFixEnv',
+    config = env_config
+)
 
 model = Model(env, model_config)
 model.reset()

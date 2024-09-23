@@ -1,14 +1,13 @@
 import numpy as np
-from environment.agent import Agent
+import gymnasium as gym
 
-from training_logging.plotting import PlottingCallback
+from utils.plotting import PlottingCallback
 
 class TargetDistanceBaselineModel:
-    def __init__(self, env: Agent):
+    def __init__(self, env: gym.Env):
         self.env = env
         self.action_mode = self.env.unwrapped.action_mode
         self.timestep = self.env.unwrapped.timestep
-        self.observe_distance = self.env.unwrapped.observe_distance
         self.state = None
         self.action = None
 
@@ -52,8 +51,8 @@ class TargetDistanceBaselineModel:
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         if self.state is None:
             self.state = state
-        if not self.observe_distance:
-            state = self.estimate_distance(state)
+            
+        #state = self.estimate_distance(state)
 
         self.state = state
 

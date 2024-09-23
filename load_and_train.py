@@ -1,9 +1,9 @@
 import gymnasium as gym
 from stable_baselines3 import PPO
 import yaml
-from helpers import prompt_zip_file_selection, user_prompt
-from model.model import Model
-from training_logging.plotting import plot_training_progress
+from utils.user_interface import prompt_zip_file_selection, user_prompt
+from model.OLD_model import Model
+from utils.plotting import plot_training_progress
 
 # ==============================================================
 

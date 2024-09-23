@@ -1,17 +1,17 @@
 from datetime import datetime
 import pygame
+import gymnasium as gym
 from stable_baselines3 import A2C, DQN, PPO
 from stable_baselines3.common.utils import set_random_seed
 import yaml
-from environment.agent import Agent
-from model.target_distance_baseline import TargetDistanceBaselineModel
-from training_logging.plotting import PlottingCallback
+from agent.OLD_target_distance_baseline import TargetDistanceBaselineModel
+from utils.plotting import PlottingCallback
 
 # =======================================================
 
 class Model:
-    def __init__(self, agent: Agent, model_config, model=None) -> None:
-        self.agent = agent
+    def __init__(self, env: gym.Env, model_config, model=None) -> None:
+        self.env = env
         self.config = model_config
         self.model_selection = self.config["model_selection"]
         self.timesteps_learned = 0
@@ -28,13 +28,13 @@ class Model:
     def set_model(self):
         # Define the model
         if self.model_selection == 0:
-            self.model = TargetDistanceBaselineModel(self.agent)
+            self.model = TargetDistanceBaselineModel(self.env)
         elif self.model_selection == 1:
-            self.model = DQN(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["seed"])
+            self.model = DQN(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], exploration_initial_eps=1.0, exploration_fraction=0.9, exploration_final_eps=0.1, verbose=1, seed=self.config["seed"])
         elif self.model_selection == 2:
-            self.model = PPO(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
+            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
         elif self.model_selection == 3:
-            self.model = A2C(self.config["policy_type"], self.agent, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
+            self.model = A2C(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
         # elif model_selection == 4:
         #     self.model = QLearning(self.agent)
         #     self.model_name = "TQL"
@@ -69,7 +69,7 @@ class Model:
             for episode in range(num_episodes):
                 total_reward = 0
                 step = 0
-                obs, info = self.agent.reset(record_video=record_video, video_path=video_path)
+                obs, info = self.env.reset(record_video=record_video, video_path=video_path)
                 print(f'-------------------- Reset ----------------------')
                 print(f'Observation: {obs}')
                 done = False
@@ -79,7 +79,7 @@ class Model:
                         print(f'-------------------- Step {step} ----------------------')
                         print(f'Observation: {obs}')
                         print(f'Action:      {action}')
-                    obs, reward, done, truncated, info = self.agent.step(action)
+                    obs, reward, done, truncated, info = self.env.step(action)
 
                     # if step == 36:
                     #     pygame.image.save(self.agent.unwrapped.env.viewer, "Test.png")
@@ -88,9 +88,9 @@ class Model:
                         print(f'Reward:      {reward}')
                     total_reward += reward
                     step += 1
-                    self.agent.render()
+                    self.env.render()
                     if done:
-                        obs, info = self.agent.reset()
+                        obs, info = self.env.reset()
                 print(f"Episode {episode} finished with total reward {total_reward}")
         except KeyboardInterrupt:
             pass
@@ -98,7 +98,7 @@ class Model:
     def save(self, folder = None):
         if folder is None:
             folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
-        config = self.agent.get_wrapper_attr('config')
+        config = self.env.get_wrapper_attr('config')
         filename = "model"
         self.model.save(folder + filename)
         with open(folder + 'env_config.yaml', 'w') as file:
@@ -108,7 +108,7 @@ class Model:
 
     def load(self, filename):
         # Load the trained agent
-        if self.model_name == "DQN": self.model = DQN.load(filename, self.agent)
-        elif self.model_name == "PPO": self.model = PPO.load(filename, self.agent)
-        elif self.model_name == "A2C": self.model = A2C.load(filename, self.agent)
+        if self.model_name == "DQN": self.model = DQN.load(filename, self.env)
+        elif self.model_name == "PPO": self.model = PPO.load(filename, self.env)
+        elif self.model_name == "A2C": self.model = A2C.load(filename, self.env)
         # elif self.model_name == "TQL": self.model = QLearning.load(filename, self.agent)

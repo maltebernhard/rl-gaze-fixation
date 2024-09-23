@@ -1,13 +1,13 @@
 import numpy as np
 from typing import Dict, List
 import gymnasium as gym
-from contingency.contingency import GazeFixation
-from environment.env import Environment, Observation
+from agent.model import GazeFixationModel
+from environment.gaze_fix_env import GazeFixEnv, Observation
 
 class Agent(gym.Env):
     def __init__(self, config: dict):
         super().__init__()
-        self.env : Environment = gym.make(id='GazeFixEnv',
+        self.env : GazeFixEnv = gym.make(id='GazeFixEnv',
                                           config = config)
         self.config = config
 
@@ -21,7 +21,7 @@ class Agent(gym.Env):
         self.metadata = self.env.metadata
 
         self.use_contingencies = config["use_contingencies"]
-        self.contingencies = [GazeFixation(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
+        self.contingencies = [GazeFixationModel(self.timestep, self.config["robot_max_vel_rot"], self.config["robot_max_acc_rot"], self.action_mode)]
         
         self.observations: Dict[str, Observation] = self.env.unwrapped.observations.copy()
         print(self.observations.keys())

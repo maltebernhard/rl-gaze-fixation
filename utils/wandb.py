@@ -6,7 +6,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import PPO
 import wandb
-from model.model import Model
+from agent.OLD_model import Model
 
 def training_run(project_name, run_name, model_config, env_config, record_video=False):
     run = create_run(project_name=project_name, model_config=model_config, name=run_name, group=run_name)
@@ -66,3 +66,8 @@ def save_artifact(run, run_name, folder):
     if os.path.isfile(folder + "GazeFixation.mp4"):
         artifact.add_file(local_path = folder + "GazeFixation.mp4", name = "GazeFixation.mp4")
     run.log_artifact(artifact)
+
+def download_artifact(project_name = "Sandbox", artifact_name=""):
+    api = wandb.Api()
+    artifact = api.artifact("rbo-malte/" + project_name + "/" + artifact_name + "_model" + ":latest")
+    artifact.download("./training_data/" + artifact_name + "/")

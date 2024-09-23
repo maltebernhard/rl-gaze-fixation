@@ -4,10 +4,9 @@ import gymnasium as gym
 import numpy as np
 import yaml
 from agent.agent import BaseAgent, StructureAgent, Contingency, MixtureOfExperts, Policy
-from model.model import AvoidNearestObstacleModel, Model, TowardsTargetModel, TargetFollowingObstacleEvasionMixtureModel, GazeFixationModel
 from environment.base_env import BaseEnv
-from environment.env import GazeFixEnv
-from training_logging.plotting import plot_training_progress, plot_training_progress_multiple
+from environment.gaze_fix_env import GazeFixEnv
+from utils.plotting import plot_training_progress, plot_training_progress_multiple
 
 env_config = {
     "timestep":            0.05,
@@ -30,7 +29,29 @@ env_config = {
     "seed":                140
 }
 
-def parse_models(env_config, model_config: Dict[int, dict]):
+env_config = {
+    "timestep":            0.05,
+    "episode_length":      20.0,
+    "world_size":          50.0,
+    "robot_sensor_angle":  np.pi * 2.0,
+    "robot_max_vel":       8.0,
+    "robot_max_vel_rot":   3.0,
+    "robot_max_acc":       8.0,
+    "robot_max_acc_rot":   10.0,
+    "action_mode":         1,
+    "observe_distance":    False,
+    "target_distance":     10.0,
+    "reward_margin":       10.0,
+    "penalty_margin":      5.0,
+    "wall_collision":      False,
+    "num_obstacles":       0,
+    "use_obstacles":       True,
+    "use_contingencies":   True,
+    "seed":                1
+    #"seed":                int(time.time())
+}
+
+def parse_agents(env_config, model_config: Dict[int, dict]):
     env: GazeFixEnv = gym.make(
         id='GazeFixEnv',
         config = env_config
@@ -72,14 +93,14 @@ def parse_models(env_config, model_config: Dict[int, dict]):
 
     return models, base_env, base_agent
 
-with open("./policy_composure/config/structure_config.yaml") as file:
-    model_config = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent_test_config.yaml") as file:
+    agent_config = yaml.load(file, Loader=yaml.FullLoader)
 
-models, base_env, base_agent = parse_models(env_config, model_config)
+agents, base_env, base_agent = parse_agents(env_config, agent_config)
 
-models[5].learn(total_timesteps=10000)
-plot_training_progress(models[5].callback)
-models[5].run()
+agents[1].learn(total_timesteps=50000)
+plot_training_progress(agents[1].callback)
+agents[1].run(prints=True)
 
 # plot_training_progress_multiple(
 #     [

@@ -209,15 +209,12 @@ class GazeFixEnv(gym.Env):
             "vel_rot" :                 Observation(-1.0, 1.0, lambda: self.robot.vel_rot/self.robot.max_vel_rot),
             "vel_frontal" :             Observation(-1.0, 1.0, lambda: self.robot.vel[0]/self.robot.max_vel),
             "vel_lateral" :             Observation(-1.0, 1.0, lambda: self.robot.vel[1]/self.robot.max_vel),
+            "robot_target_distance" :   Observation(0.0, np.inf, lambda: self.robot_target_distance())
         }
-        if self.observe_distance:
-            self.observations["robot_target_distance"] = Observation(0.0, np.inf, lambda: self.robot_target_distance())
-
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o].pos))
             self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda o=o: self.calculate_circle_coverage(self.obstacles[o]))
-            if self.observe_distance:
-                self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
+            self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_observation = None

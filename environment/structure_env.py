@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Dict, List
 import gymnasium as gym
 import numpy as np
-from environment.env import Observation
+from environment.gaze_fix_env import Observation
 
 class StructureEnv(gym.Env):
     def __init__(self, base_env: gym.Env, observation_keys = None, action_space = None):
@@ -60,3 +60,4 @@ class StructureEnv(gym.Env):
                 high=np.array([obs.high for obs in observation_dict.values()]).flatten(),
                 dtype=np.float64
             )
+            print("Env Indices: ", self.observation_indices)

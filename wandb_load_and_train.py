@@ -1,6 +1,6 @@
 import yaml
-from helpers import prompt_zip_file_selection
-from training_logging.wandb import training_run
+from utils.user_interface import prompt_zip_file_selection
+from utils.wandb import training_run
 
 # ==============================================================
 
