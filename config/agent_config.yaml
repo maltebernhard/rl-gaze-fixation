@@ -29,67 +29,69 @@
 #   - observation_keys: <list>
 #   - model specific params
 
-1 :
-  type: PLCY
-  model_type: ANO
-  observation_keys:
-    - obstacle1_offset_angle
-    - obstacle1_coverage
-    - obstacle2_offset_angle
-    - obstacle2_coverage
-    - obstacle3_offset_angle
-    - obstacle3_coverage
-  action_space_dimensionality: 2
+random_seed: 2
+agents:
+  - id: 1
+    type: PLCY
+    model_type: ANO
+    observation_keys:
+      - obstacle1_offset_angle
+      - obstacle1_coverage
+      - obstacle2_offset_angle
+      - obstacle2_coverage
+      - obstacle3_offset_angle
+      - obstacle3_coverage
+    action_space_dimensionality: 2
 
-2 :
-  type: PLCY
-  model_type: GTT
-  observation_keys:
-    - target_offset_angle
-  action_space_dimensionality: 2
+  - id: 2
+    type: PLCY
+    model_type: GTT
+    observation_keys:
+      - target_offset_angle
+    action_space_dimensionality: 2
 
-3 :
-  type: CONT
-  model_type: GFM
-  observation_keys:
-    - target_offset_angle
-    - del_target_offset_angle
-  contingent_agent: 1
+  - id: 3
+    type: CONT
+    model_type: GFM
+    observation_keys:
+      - target_offset_angle
+      - del_target_offset_angle
+    contingent_agent: 1
 
-4 :
-  type: CONT
-  model_type: GFM
-  observation_keys:
-    - target_offset_angle
-    - del_target_offset_angle
-  contingent_agent: 2
+  - id: 4
+    type: CONT
+    model_type: GFM
+    observation_keys:
+      - target_offset_angle
+      - del_target_offset_angle
+    contingent_agent: 2
 
-# 5 :
-#   type: MXTR
-#   model_type: TOM
-#   observation_keys:
-#     - obstacle1_offset_angle
-#     - obstacle1_coverage
-#     - obstacle2_offset_angle
-#     - obstacle2_coverage
-#     - obstacle3_offset_angle
-#     - obstacle3_coverage
-#   mixture_mode: 1
-#   experts: [3, 4]
+  - id: 5
+    type: MXTR
+    model_type: TOM
+    observation_keys:
+      - obstacle1_offset_angle
+      - obstacle1_coverage
+      - obstacle2_offset_angle
+      - obstacle2_coverage
+      - obstacle3_offset_angle
+      - obstacle3_coverage
+    mixture_mode: 1
+    experts: [3, 4]
 
-5 :
-  type: MXTR
-  model_type: PPO
-  observation_keys:
-    - obstacle1_offset_angle
-    - obstacle1_coverage
-    - obstacle2_offset_angle
-    - obstacle2_coverage
-    - obstacle3_offset_angle
-    - obstacle3_coverage
-  policy_type: MlpPolicy
-  mixture_mode: 1
-  learning_rate: 0.001
-  verbose: 1
-  seed: 140
-  experts: [3, 4]
+  # - id: 5
+  #   type: MXTR
+  #   model_type: PPO
+  #   observation_keys:
+  #     - obstacle1_offset_angle
+  #     - obstacle1_coverage
+  #     - obstacle2_offset_angle
+  #     - obstacle2_coverage
+  #     - obstacle3_offset_angle
+  #     - obstacle3_coverage
+  #   mixture_mode: 1
+  #   experts: [3, 4]
+  #   policy_type: MlpPolicy
+  #   learning_rate: 0.001
+  #   verbose: 1
+  #   seed: 130

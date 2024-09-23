@@ -1,8 +1,11 @@
 import gymnasium as gym
+import numpy as np
+
+np.set_printoptions(precision=2)
 
 gym.envs.register(
     id='GazeFixEnv',
-    entry_point='environment.env:GazeFixEnv',
+    entry_point='environment.gaze_fix_env:GazeFixEnv',
 )
 
 gym.envs.register(

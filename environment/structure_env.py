@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import gymnasium as gym
 import numpy as np
 from environment.gaze_fix_env import Observation
@@ -12,13 +12,16 @@ class StructureEnv(gym.Env):
         self.create_observation_space(observation_keys)
         self.action_space = action_space
         self.last_observation = None
+        self.last_action: np.ndarray = None
         self.current_action = None
     
     def step(self, action: np.ndarray):
+        self.last_action = action.copy()
         self.last_observation, reward, done, truncated, info = self.base_env.step(action)
         return self.last_observation[self.observation_indices], reward, done, truncated, info
 
     def reset(self, seed=None, **kwargs):
+        self.last_action = None
         self.last_observation, info = self.base_env.reset(seed=seed, **kwargs)
         return self.last_observation[self.observation_indices], info
     
@@ -29,14 +32,6 @@ class StructureEnv(gym.Env):
         self.base_env.close()
 
     # ======================================================================================
-
-    def step_full_observation(self, action: np.ndarray):
-        _, reward, done, truncated, info = self.step(action)
-        return self.last_observation, reward, done, truncated, info
-    
-    def reset_full_observation(self, seed=None, **kwargs):
-        _, info = self.reset(seed=seed, **kwargs)
-        return self.last_observation, info
     
     @abstractmethod
     def transform_action(self, action):
@@ -60,4 +55,3 @@ class StructureEnv(gym.Env):
                 high=np.array([obs.high for obs in observation_dict.values()]).flatten(),
                 dtype=np.float64
             )
-            print("Env Indices: ", self.observation_indices)

@@ -1,7 +1,7 @@
 import gymnasium as gym
 import yaml
+from agent.agent import Policy
 from utils.user_interface import prompt_zip_file_selection
-from model.OLD_model import Model
 
 # ==============================================
 
@@ -18,8 +18,9 @@ env = gym.make(id='GazeFixAgent',
                config = env_config
               )
 
-model = Model(env, model_config)
+# TODO: create base env wrapper and adjust config sources
+model = Policy(env, model_config)
 
+# TODO: adjust loading and running
 model.load(filename)
-
 model.run_model(5,1)

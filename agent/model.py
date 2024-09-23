@@ -1,9 +1,7 @@
 from abc import abstractmethod
 import numpy as np
-from stable_baselines3 import A2C, DQN, PPO
-from stable_baselines3.common.utils import set_random_seed
 from environment.structure_env import StructureEnv
-from training_logging.plotting import PlottingCallback
+from utils.plotting import PlottingCallback
 
 # =============================================================================
 
@@ -56,9 +54,9 @@ class GazeFixationModel(Model):
     def predict(self, obs, deterministic = True):
         vel_rot_desired = self.compute_target_vel(obs[0])
         if self.action_mode == 1:
-            return np.array([self.pd_control(vel_rot_desired-obs[1], obs[1])]), []
+            return np.array([self.pd_control(vel_rot_desired-obs[1], obs[1])]), None
         elif self.action_mode == 2:
-            return np.array([self.flip_control(vel_rot_desired, obs[1], self.epsilon)]), []
+            return np.array([self.flip_control(vel_rot_desired, obs[1], self.epsilon)]), None
         
     def flip_control(self, target, current, eps):
         action = 1
@@ -108,7 +106,7 @@ class AvoidNearestObstacleModel(Model):
             action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)])
         else:
             raise ValueError("Invalid action space dimensionality")
-        return action, []
+        return action, None
 
 # =============================================================================
 
@@ -126,7 +124,7 @@ class TowardsTargetModel(Model):
             action = np.array([np.cos(offset_angle), np.sin(offset_angle)] + [np.random.uniform(-1,1)])
         else:
             raise ValueError("Invalid action space dimensionality")
-        return action, []
+        return action, None
 
 # =============================================================================
 
@@ -161,7 +159,7 @@ class TargetFollowingObstacleEvasionMixtureModel(Model):
                 raise Exception("Action space dimensionality not supported.")
         else:
             raise Exception("Mixture mode not supported.")
-        return weights.flatten(), []
+        return weights.flatten(), None
 
 # =============================================================================
 

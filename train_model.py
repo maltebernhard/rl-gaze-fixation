@@ -2,7 +2,7 @@ import gymnasium as gym
 import yaml
 import environment
 from utils.user_interface import user_prompt
-from model.OLD_model import Model
+from agent.agent import Policy
 from utils.plotting import plot_training_progress
 
 # ==============================================================
@@ -18,7 +18,8 @@ env = gym.make(
     config = env_config
 )
 
-model = Model(env, model_config)
+# TODO: adjust loading, resetting and all that
+model = Policy(env, model_config)
 model.reset()
 
 if model_selection != 0:

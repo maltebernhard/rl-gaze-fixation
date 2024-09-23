@@ -142,6 +142,7 @@ class GazeFixEnv(gym.Env):
             #self.video.compress(target_size = int(self.time/10 * 1024), new_file=True)
         self.record_video = record_video
         self.video_path = video_path
+        self.viewer = None
         self.time = 0.0
         self.num_steps = 0
         self.total_reward = 0.0
@@ -192,9 +193,6 @@ class GazeFixEnv(gym.Env):
     
     def get_info(self):
         return {}
-    
-    def step_full_observation(self, action):
-        return self.step(action)
     
     def reset_full_observation(self, seed=None, **kwargs):
         return self.reset(seed=seed, **kwargs)

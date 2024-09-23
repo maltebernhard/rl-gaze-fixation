@@ -2,7 +2,7 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 import yaml
 from utils.user_interface import prompt_zip_file_selection, user_prompt
-from model.OLD_model import Model
+from agent.agent import Policy
 from utils.plotting import plot_training_progress
 
 # ==============================================================
@@ -20,8 +20,9 @@ model_config["total_timesteps"] = 200000
 env = gym.make(id = 'GazeFixAgent',
                config = env_config)
 
+# TODO: adjust loading and all that
 model = PPO.load(filename, env)
-model = Model(env, model_config, model)
+model = Policy(env, model_config)
 model.reset()
 model.learn(total_timesteps=model_config["total_timesteps"])
 

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -8,30 +8,31 @@ from stable_baselines3.common.utils import set_random_seed
 
 from agent.model import Model, AvoidNearestObstacleModel, GazeFixationModel, TargetFollowingObstacleEvasionMixtureModel, TowardsTargetModel
 from agent.callback import PlottingCallback
+from environment.structure_env import StructureEnv
 
 # =======================================================    
 
 class StructureAgent:
-    def __init__(self, env: gym.Env, agent_config: dict = None) -> None:
+    def __init__(self, env: StructureEnv, agent_config: dict = None) -> None:
         self.env = env
+        self.id = agent_config["id"]
         self.config = agent_config
         self.model: Model = None
         self.model_name = agent_config["model_type"]
         self.set_model()
-        self.last_action: np.ndarray = None
         self.set_observation_space(agent_config["observation_keys"])
         self.set_callback()
 
-    def run(self, prints = False, env_seed = None):
+    def run(self, prints = False, steps = 0, env_seed = None):
         total_reward = 0
         step = 0
         #obs, info = self.env.unwrapped.reset_full_observation(seed=env_seed)
-        obs, info = self.env.unwrapped.reset(seed=env_seed)
+        obs, info = self.env.reset(seed=env_seed)
         if prints:
             print(f'-------------------- Reset ----------------------')
             print(f'Observation: {obs}')
         done = False
-        while not done:
+        while not done and (steps==0 or step < steps):
             #action, _states = self.predict_full_observation(obs)
             action, _states = self.predict(obs)
             if prints:
@@ -45,9 +46,10 @@ class StructureAgent:
             total_reward += reward
             step += 1
             self.env.render()
-            if done:
-                #obs, info = self.env.reset_full_observation()
-                obs, info = self.env.reset()
+            
+        #obs, info = self.env.reset_full_observation()
+        self.env.close()
+        obs, info = self.env.reset()
         print(f"Episode finished with total reward {total_reward}")
 
     def set_observation_space(self, observation_keys: List[str] = None) -> None:
@@ -61,14 +63,9 @@ class StructureAgent:
                 observation_indices.append(index)
             index += 1
         self.observation_indices = np.array(observation_indices)
-        print("Observation space: ", [key for key in self.env.get_wrapper_attr("observations").keys()])
-        print("Observations: ", self.observation_indices)
 
     def learn(self, total_timesteps) -> None:
         self.model.learn(total_timesteps=total_timesteps, callback=self.callback)
-
-    def reset(self):
-        set_random_seed(self.config["seed"])
 
     def save(self, folder = None):
         if folder is None:
@@ -85,13 +82,20 @@ class StructureAgent:
         raise NotImplementedError
 
     def predict(self, observation: np.ndarray, deterministic = True) -> np.ndarray:
-        self.last_action = self.model.predict(observation, deterministic)
-        return self.last_action
+        action = self.model.predict(observation, deterministic)
+        return action
     
     def predict_full_observation(self, observation: np.ndarray) -> np.ndarray:
-        observation = observation[self.observation_indices]
-        self.last_action = self.model.predict(observation)
-        return self.last_action
+        # if last_action is set, this model is actively controlling the environment
+        if self.env.unwrapped.last_action is not None:
+            action = self.env.unwrapped.last_action.copy(), None
+            self.env.unwrapped.last_action = None
+            return action
+        # if it isn't, predict action again
+        else:
+            observation = observation[self.observation_indices]
+            action = self.model.predict(observation)
+            return action
 
     @ abstractmethod
     def set_model(self):
@@ -103,43 +107,7 @@ class StructureAgent:
         else:
             self.callback = callback
     
-# =====================================================================
-
-class Contingency(StructureAgent):
-    def __init__(self, base_env, agent_config, contingent_agent) -> None:
-        contingency_env = gym.make(
-            id='StructureEnv',
-            base_env = base_env,
-            observation_keys = agent_config["observation_keys"],
-            action_space = self.create_action_space()
-        )
-        self.contingent_agent = contingent_agent
-        super().__init__(contingency_env, agent_config)
-
-    def create_action_space(self):
-        # TODO: make this more general
-        return gym.spaces.Box(
-            low=np.array([0.0]),
-            high=np.array([1.0]),
-            dtype=np.float64,
-            shape=(1,)
-        )
-
-    def set_model(self):
-        if self.config["model_type"] == "PPO":
-            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
-        elif self.config["model_type"] == "GFM":
-            # TODO: make more general - remove dependency on GazeFixEv
-            self.model = GazeFixationModel(self.env, timestep=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["timestep"], max_vel_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_vel_rot"], max_acc_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_acc_rot"])
-        else:
-            raise ValueError("Model type not supported for Contingency Agent")
-
-    def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
-        previous_action = self.contingent_agent.predict_full_observation(observation)[0]
-        self.last_action = np.concatenate([self.contingent_agent.transform_action(previous_action, observation), action])
-        return self.last_action
-
-# =======================================================
+# ===================================================================================
 
 class Policy(StructureAgent):
     def __init__(self, base_env, agent_config) -> None:
@@ -154,7 +122,7 @@ class Policy(StructureAgent):
     def create_action_space(self):
         # TODO: make this more general
         return gym.spaces.Box(
-            low=np.array([0.0, 0.0]),
+            low=np.array([-1.0, -1.0]),
             high=np.array([1.0, 1.0]),
             dtype=np.float64,
             shape=(2,)
@@ -172,10 +140,45 @@ class Policy(StructureAgent):
             raise ValueError("Model type not supported for Policy Agent")
 
     def transform_action(self, action, observation) -> np.ndarray:
-        self.last_action = action
-        return self.last_action
+        return action
 
-# =======================================================
+# =========================================================================
+
+class Contingency(StructureAgent):
+    def __init__(self, base_env, agent_config, contingent_agent) -> None:
+        contingency_env = gym.make(
+            id='StructureEnv',
+            base_env = base_env,
+            observation_keys = agent_config["observation_keys"],
+            action_space = self.create_action_space()
+        )
+        self.contingent_agent: StructureAgent = contingent_agent
+        super().__init__(contingency_env, agent_config)
+
+    def create_action_space(self):
+        # TODO: make this more general
+        return gym.spaces.Box(
+            low=np.array([-1.0]),
+            high=np.array([1.0]),
+            dtype=np.float64,
+            shape=(1,)
+        )
+
+    def set_model(self):
+        if self.config["model_type"] == "PPO":
+            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
+        elif self.config["model_type"] == "GFM":
+            # TODO: make more general - remove dependency on GazeFixEv
+            self.model = GazeFixationModel(self.env, timestep=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["timestep"], max_vel_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_vel_rot"], max_acc_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_acc_rot"])
+        else:
+            raise ValueError("Model type not supported for Contingency Agent")
+
+    def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
+        previous_action = self.contingent_agent.predict_full_observation(observation)[0]
+        action = np.concatenate([self.contingent_agent.transform_action(previous_action, observation), action])
+        return action
+
+# =========================================================================================================
 
 class MixtureOfExperts(StructureAgent):
     def __init__(self, base_env, agent_config, experts):
@@ -219,8 +222,8 @@ class MixtureOfExperts(StructureAgent):
             a = expert.predict_full_observation(observation)[0]
             actions.append(expert.transform_action(a, observation))
         # apply mixture
-        self.last_action = np.sum(weights * actions, axis = 0)
-        return self.last_action
+        action = np.sum(weights * actions, axis = 0)
+        return action
     
     def normalize_weights(self, weights: np.ndarray) -> np.ndarray:
         if self.mixture_mode == 1:
@@ -234,16 +237,3 @@ class MixtureOfExperts(StructureAgent):
         # normalize weights
         weights = weights / sum
         return weights
-
-# =======================================================================================
-
-class BaseAgent:
-    def __init__(self, agents: List[StructureAgent]) -> None:
-        self.agents = agents
-        self.last_agent = None
-
-    def set_last_agent(self, last_agent) -> None:
-        self.last_agent: StructureAgent = last_agent
-
-    def predict(self, observation: np.ndarray) -> np.ndarray:
-        return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation)
