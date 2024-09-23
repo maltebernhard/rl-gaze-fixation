@@ -9,13 +9,12 @@ class TargetDistanceBaselineModel:
         self.action_mode = self.env.unwrapped.action_mode
         self.timestep = self.env.unwrapped.timestep
         self.observe_distance = self.env.unwrapped.observe_distance
-        self.use_contingencies = self.env.unwrapped.use_contingencies
         self.state = None
         self.action = None
 
         self.target_distance = self.env.unwrapped.config["target_distance"]
 
-        self.max_acc = self.env.unwrapped.env.unwrapped.robot.max_acc
+        self.max_acc = self.env.unwrapped.robot.max_acc
         
     def learn(self, total_timesteps: int, callback: PlottingCallback):
         obs, info = self.env.reset()
@@ -60,22 +59,19 @@ class TargetDistanceBaselineModel:
 
         acc_lateral = 1
 
-        if self.state[5-int(self.use_contingencies)] > eps: acc_frontal = 2
-        elif self.state[5-int(self.use_contingencies)] < 0:
+        if self.state[5] > eps: acc_frontal = 2
+        elif self.state[5] < 0:
             acc_frontal = 1
-            if self.state[3-int(self.use_contingencies)] > 0:
+            if self.state[3] > 0:
                 acc_lateral = 0
         else:
             acc_frontal = 1
-            if self.state[3-int(self.use_contingencies)] > 0:
+            if self.state[3] > 0:
                 acc_lateral = 0
-            elif self.state[3-int(self.use_contingencies)] < 0:
+            elif self.state[3] < 0:
                 acc_frontal = 2
 
-        #if self.use_contingencies: self.action = np.array([acc_frontal, acc_lateral])
-        if self.use_contingencies: self.action = np.array([2, acc_lateral])
-        #else: self.action = np.array([acc_frontal, acc_lateral, 1])
-        else: self.action = np.array([2, acc_lateral, 1])
+        self.action = np.array([2, acc_lateral, 1])
         if self.action_mode == 1:
             self.action = (self.action - np.ones(self.action.shape)) * self.max_acc
         return self.action, []

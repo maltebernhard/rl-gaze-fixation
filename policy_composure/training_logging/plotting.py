@@ -13,7 +13,7 @@ class PlottingCallback(BaseCallback):
     def _on_step(self) -> bool:
         # Accumulate the reward for the current episode
         self.current_episode_reward += self.locals['rewards'][0]
-        self.last_observation = self.locals['observation']
+        #self.last_observation = self.locals['observation']
 
         # Check if the episode has ended
         if self.locals['dones'][0]:

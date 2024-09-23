@@ -34,13 +34,13 @@ env_config = {
 # ==========================================================================
 
 # create and wrap the environment
-env = gym.make(id='GazeFixAgent',
-               config = env_config
-              )
-
-# env = gym.make(id='GazeFixEnv',
+# env = gym.make(id='GazeFixAgent',
 #                config = env_config
 #               )
+
+env = gym.make(id='GazeFixEnv',
+               config = env_config
+              )
 
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 

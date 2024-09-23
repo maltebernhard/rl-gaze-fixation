@@ -1,52 +1,9 @@
-from datetime import datetime
+from abc import abstractmethod
 import numpy as np
 from stable_baselines3 import A2C, DQN, PPO
 from stable_baselines3.common.utils import set_random_seed
 from environment.structure_env import StructureEnv
 from training_logging.plotting import PlottingCallback
-
-# ==========================================================================
-
-class ModelWrapper:
-    def __init__(self, env, config={}) -> None:
-        self.env = env
-        self.set_model(config)
-        # Create the callback
-        self.callback = PlottingCallback(self.model_name)
-
-    def set_model(self, config):
-        if config["policy_type"] == "PPO":
-            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
-        elif config["policy_type"] == "ANO":
-            self.model = AvoidNearestObstacleModel(self.env, action_space_dimensionality=3)
-        elif config["policy_type"] == "GTT":
-            self.model = TowardsTargetModel(self.env, action_space_dimensionality=2)
-        elif config["policy_type"] == "TOM":
-            self.model = TargetFollowingObstacleEvasionMixtureModel(self.env, mixture_mode=self.config["mixture_mode"], action_space_dimensionality=3)
-            
-        self.config = config
-        self.set_model_name()
-
-    def set_model_name(self):
-        self.model_name = "PPO"
-
-    def learn(self, total_timesteps, callback=None):
-        self.model.learn(total_timesteps=total_timesteps, callback=callback)
-
-    def predict(self, obs, deterministic = True):
-        return self.model.predict(obs, deterministic)
-    
-    def reset(self):
-        set_random_seed(self.config["seed"])
-
-    def save(self, folder = None):
-        if folder is None:
-            folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
-        filename = self.model_name
-        self.model.save(folder + filename)
-
-    def load(self, filename, env):
-        self.model = PPO.load(filename, env=env)
 
 # =============================================================================
 
@@ -73,6 +30,10 @@ class Model:
                 if done:
                     obs, info = self.env.reset()
             #print("Episode reward: {}".format(total_reward))
+
+    @abstractmethod
+    def predict(self, obs, deterministic = True):
+        raise NotImplementedError
 
     def save(self, file_path: str):
         pass
@@ -129,9 +90,9 @@ class GazeFixationModel(Model):
 # =============================================================================
 
 class AvoidNearestObstacleModel(Model):
-    def __init__(self, env: StructureEnv, action_space_dimensionality: int = 3):
+    def __init__(self, env: StructureEnv, action_space_dimensionality: int, num_obstacles: int):
         super().__init__(env)
-        self.num_obstacles = self.env.unwrapped.config["num_obstacles"]
+        self.num_obstacles = num_obstacles
         self.action_space_dimensionality = action_space_dimensionality
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):

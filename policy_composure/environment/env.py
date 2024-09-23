@@ -76,7 +76,6 @@ class GazeFixEnv(gym.Env):
         self.time = 0.0
         self.total_reward = 0.0
 
-        self.observe_distance = config["observe_distance"]
         self.action_mode: int = config["action_mode"]
         self.action = np.array([0.0, 0.0, 0.0])
 

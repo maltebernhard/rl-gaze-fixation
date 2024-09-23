@@ -1,6 +1,5 @@
 import gymnasium as gym
 
-
 class BaseEnv(gym.Env):
     def __init__(self, env: gym.Env):
         self.env = env

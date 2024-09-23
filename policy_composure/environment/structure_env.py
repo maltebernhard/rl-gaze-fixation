@@ -5,11 +5,12 @@ import numpy as np
 from environment.env import Observation
 
 class StructureEnv(gym.Env):
-    def __init__(self, base_env: gym.Env, observation_keys = None):
+    def __init__(self, base_env: gym.Env, observation_keys = None, action_space = None):
         super().__init__()
         self.base_env = base_env
         self.observations: Dict[str, Observation] = self.base_env.get_wrapper_attr("observations")
-        self.observation_space = self.create_observation_space(observation_keys)
+        self.create_observation_space(observation_keys)
+        self.action_space = action_space
         self.last_observation = None
         self.current_action = None
     
@@ -40,14 +41,10 @@ class StructureEnv(gym.Env):
     @abstractmethod
     def transform_action(self, action):
         raise NotImplementedError
-
-    @abstractmethod
-    def create_action_space(self):
-        raise NotImplementedError
     
     def create_observation_space(self, observation_keys):
         if observation_keys is None:
-            return self.base_env.observation_space
+            self.observation_space = self.base_env.observation_space
         else:
             index = 0
             observation_dict: Dict[str, Observation] = {}
@@ -58,64 +55,8 @@ class StructureEnv(gym.Env):
                     observation_indices.append(index)
                 index += 1
             self.observation_indices = np.array(observation_indices)
-            return gym.spaces.Box(
+            self.observation_space = gym.spaces.Box(
                 low=np.array([obs.low for obs in observation_dict.values()]).flatten(),
                 high=np.array([obs.high for obs in observation_dict.values()]).flatten(),
                 dtype=np.float64
             )
-
-# ========================================================================================
-
-class PolicyEnv(StructureEnv):
-    def __init__(self, base_env: gym.Env, observation_keys=None):
-        super().__init__(base_env, observation_keys)
-        self.create_action_space()
-    
-    def create_action_space(self):
-        # TODO: make this more general
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0, 0.0]),
-            high=np.array([1.0, 1.0]),
-            dtype=np.float64,
-            shape=(2,)
-        )
-    
-# ========================================================================================
-    
-class ContingencyEnv(StructureEnv):
-    def __init__(self, base_env: gym.Env, contingent_agent, observation_keys=None):
-        super().__init__(base_env, observation_keys)
-        #self.contingent_agent = contingent_agent
-        self.create_action_space()
-    
-    def create_action_space(self):
-        # TODO: make this more general
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0]),
-            high=np.array([1.0]),
-            dtype=np.float64,
-            shape=(1,)
-        )
-    
-# ========================================================================================
-
-class MixtureEnv(StructureEnv):
-    def __init__(self, base_env: gym.Env, experts, observation_keys: List[str] = None, mixture_mode: int = 1):
-        # self.experts = experts
-        # self.mixture_mode = mixture_mode
-        super().__init__(base_env, observation_keys)
-        self.create_action_space(mixture_mode, experts)
-    
-    def create_action_space(self, mixture_mode, experts):
-        if mixture_mode == 1:
-            self.action_space_dimensionality = 1
-        elif mixture_mode == 2:
-            self.action_space_dimensionality = self.base_env.action_space.shape[0]
-        else:
-            raise ValueError("Mixture mode not supported")
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0 for _ in range(len(experts)*self.action_space_dimensionality)]).flatten(),
-            high=np.array([1.0 for _ in range(len(experts*self.action_space_dimensionality))]).flatten(),
-            dtype=np.float64
-        )
-        
