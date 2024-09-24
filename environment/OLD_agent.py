@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Dict, List
 import gymnasium as gym
-from agent.model import GazeFixationModel
+from agent.models.model import GazeFixationModel
 from environment.gaze_fix_env import GazeFixEnv, Observation
 
 class Agent(gym.Env):

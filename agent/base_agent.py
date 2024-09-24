@@ -1,15 +1,16 @@
 from datetime import datetime
 import numpy as np
 import gymnasium as gym
+import matplotlib.pyplot as plt
+import networkx as nx
 from typing import Dict, List
 from stable_baselines3.common.utils import set_random_seed
 import yaml
 
-from agent.agent import Contingency, MixtureOfExperts, Policy, StructureAgent
+from agent.agent import Contingency, MixtureOfExperts, MixtureOfTwoExperts, Policy, StructureAgent
 from utils.plotting import plot_training_progress
-import matplotlib.pyplot as plt
-import networkx as nx
 
+# =============================================================================
 
 class BaseAgent:
     def __init__(self, agent_config, env_config) -> None:
@@ -46,7 +47,7 @@ class BaseAgent:
         for id, agent in self.agents.items():
             filename = f"{id}_model"
             agent.model.save(folder + filename)
-        self.visualize_agent_tree(folder + "agent_tree.png")
+        self.visualize_agent_tree(folder + "agent_tree")
         with open(folder + 'env_config.yaml', 'w') as file:
             yaml.dump(self.env_config, file, default_flow_style=False)
         with open(folder + 'agent_config.yaml', 'w') as file:
@@ -76,12 +77,19 @@ class BaseAgent:
                     agent_config = agent_config,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
+            elif agent_config["type"] == "MX2R":
+                self.agents[agent_config["id"]] = MixtureOfTwoExperts(
+                    base_env = base_env,
+                    agent_config = agent_config,
+                    experts = [self.agents[expert] for expert in agent_config["experts"]]
+                )
+
             else:
                 raise ValueError(f"Unknown model type: {agent_config['type']}")
         key = max(self.agents.keys())
         self.set_last_agent(self.agents[key])
         for agent in self.agents.values():
-            agent.env.reset()
+            agent.env.reset(key=self.env_config["seed"])
 
     def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
         if agent in self.agents.keys():
@@ -93,7 +101,7 @@ class BaseAgent:
         
     def run_agent(self, agent: int, timesteps: int, prints: bool = False) -> None:
         if agent in self.agents.keys():
-            self.agents[agent].run(prints=prints, steps=timesteps)
+            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=self.env_config["seed"])
         else:
             raise ValueError(f"Invalid agent key: {agent}")
 
@@ -104,7 +112,7 @@ class BaseAgent:
             agent_type = agent.config["type"]
             model_type = agent.config["model_type"]
             G.add_node(agent.id, agent_type=agent_type, model_type=model_type, id=agent.id)
-            if agent_type == "MXTR":
+            if agent_type == "MXTR" or agent_type == "MX2R":
                 for expert in agent.experts:
                     depth = max(depth, add_node(expert, G, depth + 1))
                     G.add_edge(expert.id, agent.id)
@@ -126,7 +134,7 @@ class BaseAgent:
         node_color_map = {agent_type: color for agent_type, color in zip(agent_types, node_colors)}
 
         def set_parent_positions(node, pos, G: nx.DiGraph):
-            if G.nodes[node]["agent_type"] == "MXTR":
+            if G.nodes[node]["agent_type"] == "MXTR" or G.nodes[node]["agent_type"] == "MX2R":
                 # Get the parents of the node
                 parents = list(G.predecessors(node))
                 x, y = pos[node]

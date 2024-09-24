@@ -1,26 +1,35 @@
 from abc import abstractmethod
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import List
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.utils import set_random_seed
 
-from agent.model import Model, AvoidNearestObstacleModel, GazeFixationModel, TargetFollowingObstacleEvasionMixtureModel, TowardsTargetModel
-from agent.callback import PlottingCallback
+from agent.models.model import Model
+from agent.models.avoid_nearest_obstacle import AvoidNearestObstacleModel
+from agent.models.towards_target import TowardsTargetModel
+from agent.models.gaze_fixation import GazeFixationModel
+from agent.models.target_following_obstacle_evasion_mixture import TargetFollowingObstacleEvasionMixtureModel
+from utils.callback import PlottingCallback
 from environment.structure_env import StructureEnv
 
 # =======================================================    
 
 class StructureAgent:
-    def __init__(self, env: StructureEnv, agent_config: dict = None) -> None:
-        self.env = env
+    def __init__(self, base_env, agent_config: dict = None) -> None:
         self.id = agent_config["id"]
         self.config = agent_config
+        self.observation_keys = None
+        self.env: StructureEnv = gym.make(
+            id='StructureEnv',
+            base_env = base_env,
+            observation_keys = self.get_observation_keys(),
+            action_space = self.create_action_space()
+        )
+        self.observation_indices = self.env.get_wrapper_attr("observation_indices")
         self.model: Model = None
-        self.model_name = agent_config["model_type"]
         self.set_model()
-        self.set_observation_space(agent_config["observation_keys"])
+        self.model_name = agent_config["model_type"]
         self.set_callback()
 
     def run(self, prints = False, steps = 0, env_seed = None):
@@ -52,18 +61,6 @@ class StructureAgent:
         obs, info = self.env.reset()
         print(f"Episode finished with total reward {total_reward}")
 
-    def set_observation_space(self, observation_keys: List[str] = None) -> None:
-        if observation_keys is None:
-            self.observation_indices = self.env.get_wrapper_attr("observation_indices")
-            return
-        index = 0
-        observation_indices = []
-        for key in self.env.get_wrapper_attr("observations").keys():
-            if key in observation_keys:
-                observation_indices.append(index)
-            index += 1
-        self.observation_indices = np.array(observation_indices)
-
     def learn(self, total_timesteps) -> None:
         self.model.learn(total_timesteps=total_timesteps, callback=self.callback)
 
@@ -76,10 +73,6 @@ class StructureAgent:
     def load(self, filename):
         if self.model_name == "PPO":
             self.model = PPO.load(filename, env=self.env)
-
-    @abstractmethod
-    def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
 
     def predict(self, observation: np.ndarray, deterministic = True) -> np.ndarray:
         action = self.model.predict(observation, deterministic)
@@ -97,27 +90,33 @@ class StructureAgent:
             action = self.model.predict(observation)
             return action
 
-    @ abstractmethod
-    def set_model(self):
-        raise NotImplementedError
-
     def set_callback(self, callback=None) -> None:
         if callback is None:
             self.callback = PlottingCallback(self.model_name)
         else:
             self.callback = callback
+
+    @abstractmethod
+    def get_observation_keys(self) -> List[str]:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def create_action_space(self, mixture_mode, num_experts):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def set_model(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
     
 # ===================================================================================
 
 class Policy(StructureAgent):
     def __init__(self, base_env, agent_config) -> None:
-        policy_env = gym.make(
-            id='StructureEnv',
-            base_env = base_env,
-            observation_keys = agent_config["observation_keys"],
-            action_space = self.create_action_space()
-        )
-        super().__init__(policy_env, agent_config)
+        super().__init__(base_env, agent_config)
 
     def create_action_space(self):
         # TODO: make this more general
@@ -133,11 +132,21 @@ class Policy(StructureAgent):
             self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
         # TODO: fix hard-coded action space dimensionality and number of obstacles
         elif self.config["model_type"] == "ANO":
-            self.model = AvoidNearestObstacleModel(self.env, action_space_dimensionality=self.config["action_space_dimensionality"], num_obstacles=3)
+            self.model = AvoidNearestObstacleModel(self.env, action_space_dimensionality=self.config["action_space_dimensionality"])
         elif self.config["model_type"] == "GTT":
             self.model = TowardsTargetModel(self.env, action_space_dimensionality=self.config["action_space_dimensionality"])
         else:
             raise ValueError("Model type not supported for Policy Agent")
+
+    def get_observation_keys(self):
+        if self.config["model_type"] == "PPO":
+            return self.config["observation_keys"]
+        elif self.config["model_type"] == "ANO":
+            return AvoidNearestObstacleModel.observation_keys
+        elif self.config["model_type"] == "GTT":
+            return TowardsTargetModel.observation_keys
+        else:
+            return None
 
     def transform_action(self, action, observation) -> np.ndarray:
         return action
@@ -146,14 +155,8 @@ class Policy(StructureAgent):
 
 class Contingency(StructureAgent):
     def __init__(self, base_env, agent_config, contingent_agent) -> None:
-        contingency_env = gym.make(
-            id='StructureEnv',
-            base_env = base_env,
-            observation_keys = agent_config["observation_keys"],
-            action_space = self.create_action_space()
-        )
         self.contingent_agent: StructureAgent = contingent_agent
-        super().__init__(contingency_env, agent_config)
+        super().__init__(base_env, agent_config)
 
     def create_action_space(self):
         # TODO: make this more general
@@ -172,6 +175,14 @@ class Contingency(StructureAgent):
             self.model = GazeFixationModel(self.env, timestep=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["timestep"], max_vel_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_vel_rot"], max_acc_rot=self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["robot_max_acc_rot"])
         else:
             raise ValueError("Model type not supported for Contingency Agent")
+        
+    def get_observation_keys(self):
+        if self.config["model_type"] == "PPO":
+            return self.config["observation_keys"]
+        elif self.config["model_type"] == "GFM":
+            return GazeFixationModel.observation_keys
+        else:
+            return None
 
     def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
         previous_action = self.contingent_agent.predict_full_observation(observation)[0]
@@ -182,36 +193,34 @@ class Contingency(StructureAgent):
 
 class MixtureOfExperts(StructureAgent):
     def __init__(self, base_env, agent_config, experts):
-        mixture_env = gym.make(
-            id='StructureEnv',
-            base_env = base_env,
-            observation_keys = agent_config["observation_keys"],
-            action_space = self.create_action_space(agent_config["mixture_mode"], len(experts))
-        )
-        super().__init__(mixture_env, agent_config)
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
+        super().__init__(base_env, agent_config)
 
-    def create_action_space(self, mixture_mode, num_experts):
-        if mixture_mode == 1:
+    def create_action_space(self):
+        if self.mixture_mode == 1:
             self.action_space_dimensionality = 1
-        elif mixture_mode == 2:
-            self.action_space_dimensionality = self.base_env.action_space.shape[0]
+        elif self.mixture_mode == 2:
+            self.action_space_dimensionality = self.env.unwrapped.base_env.unwrapped.action_space.shape[0]
         else:
             raise ValueError("Mixture mode not supported")
         return gym.spaces.Box(
-            low=np.array([0.0 for _ in range(num_experts*self.action_space_dimensionality)]).flatten(),
-            high=np.array([1.0 for _ in range(num_experts*self.action_space_dimensionality)]).flatten(),
+            low=np.array([0.0 for _ in range(len(self.experts)*self.action_space_dimensionality)]).flatten(),
+            high=np.array([1.0 for _ in range(len(self.experts)*self.action_space_dimensionality)]).flatten(),
             dtype=np.float64
         )
 
     def set_model(self):
         if self.config["model_type"] == "PPO":
             self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
-        elif self.config["model_type"] == "TOM":
-            self.model = TargetFollowingObstacleEvasionMixtureModel(self.env, mixture_mode=self.config["mixture_mode"], action_space_dimensionality=3)
         else:
             raise ValueError("Model type not supported for Mixture-of-Experts Agent")
+        
+    def get_observation_keys(self):
+        if self.config["model_type"] == "PPO":
+            return self.config["observation_keys"]
+        else:
+            return None
 
     def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
         weights = self.normalize_weights(action)
@@ -237,3 +246,56 @@ class MixtureOfExperts(StructureAgent):
         # normalize weights
         weights = weights / sum
         return weights
+
+# =========================================================================================================
+
+class MixtureOfTwoExperts(StructureAgent):
+    def __init__(self, base_env, agent_config, experts):
+        self.experts: List[StructureAgent] = experts
+        self.mixture_mode = agent_config["mixture_mode"]
+        super().__init__(base_env, agent_config)
+
+    def create_action_space(self):
+        if self.mixture_mode == 1:
+            self.action_space_dimensionality = 1
+        elif self.mixture_mode == 2:
+            self.action_space_dimensionality = self.experts[0].env.action_space.shape[0]
+        else:
+            raise ValueError("Mixture mode not supported")
+        return gym.spaces.Box(
+            low=np.array([0.0 for _ in range(self.action_space_dimensionality)]).flatten(),
+            high=np.array([1.0 for _ in range(self.action_space_dimensionality)]).flatten(),
+            dtype=np.float64
+        )
+
+    def set_model(self):
+        if self.config["model_type"] == "PPO":
+            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
+        elif self.config["model_type"] == "TOM":
+            self.model = TargetFollowingObstacleEvasionMixtureModel(self.env, mixture_mode=self.config["mixture_mode"], action_space_dimensionality=self.action_space_dimensionality)
+        else:
+            raise ValueError("Model type not supported for Mixture-of-Experts Agent")
+        
+    def get_observation_keys(self):
+        if self.config["model_type"] == "PPO":
+            return self.config["observation_keys"]
+        elif self.config["model_type"] == "TOM":
+            return TargetFollowingObstacleEvasionMixtureModel.observation_keys
+        else:
+            return None
+
+    def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
+        if self.mixture_mode == 1:
+            weights = np.array([[action[0]], [1.0 - action[0]]])
+            weights = weights.reshape((len(self.experts),1)).repeat(self.action_space_dimensionality, axis=1)
+        elif self.mixture_mode == 2:
+            weights = np.array([action, np.ones(action.shape) - action])
+        # get mixture experts' actions
+        actions = []
+        # n x m array of actions
+        for expert in self.experts:
+            a = expert.predict_full_observation(observation)[0]
+            actions.append(expert.transform_action(a, observation))
+        # apply mixture
+        action = np.sum(weights * actions, axis = 0)
+        return action

@@ -8,7 +8,6 @@ class StructureEnv(gym.Env):
     def __init__(self, base_env: gym.Env, observation_keys = None, action_space = None):
         super().__init__()
         self.base_env = base_env
-        self.observations: Dict[str, Observation] = self.base_env.get_wrapper_attr("observations")
         self.create_observation_space(observation_keys)
         self.action_space = action_space
         self.last_observation = None
@@ -39,16 +38,21 @@ class StructureEnv(gym.Env):
     
     def create_observation_space(self, observation_keys):
         if observation_keys is None:
+            # use all available observations
             self.observation_space = self.base_env.observation_space
+            self.observation_indices = np.array([i for i in range(len(self.base_env.get_wrapper_attr("observations").keys()))])
         else:
-            index = 0
             observation_dict: Dict[str, Observation] = {}
+            all_observations: Dict[str, Observation] = self.base_env.get_wrapper_attr("observations")
             observation_indices = []
-            for key, obs in self.observations.items():
-                if key in observation_keys:
-                    observation_dict[key] = obs
-                    observation_indices.append(index)
-                index += 1
+            for obskey in observation_keys:
+                index = 0
+                for key, obs in all_observations.items():
+                    if obskey == key:
+                        observation_dict[key] = obs
+                        observation_indices.append(index)
+                        continue
+                    index += 1
             self.observation_indices = np.array(observation_indices)
             self.observation_space = gym.spaces.Box(
                 low=np.array([obs.low for obs in observation_dict.values()]).flatten(),

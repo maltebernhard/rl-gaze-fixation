@@ -1,6 +1,0 @@
-env_name:         GazeFixation
-learning_rate:    0.001
-model_selection:  2
-policy_type:      MlpPolicy
-seed:             1
-total_timesteps:  50000

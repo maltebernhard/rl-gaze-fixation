@@ -1,11 +1,12 @@
 import numpy as np
-import gymnasium as gym
+from agent.models.model import Model
+from environment.structure_env import StructureEnv
 
-from utils.plotting import PlottingCallback
+class KeepTargetDistanceModel(Model):
+    observation_keys = ["target_offset_angle", "del_target_offset_angle", "vel_frontal", "vel_lateral", "vel_rot"]
 
-class TargetDistanceBaselineModel:
-    def __init__(self, env: gym.Env):
-        self.env = env
+    def __init__(self, env: StructureEnv):
+        super().__init__(env)
         self.action_mode = self.env.unwrapped.action_mode
         self.timestep = self.env.unwrapped.timestep
         self.state = None
@@ -14,25 +15,6 @@ class TargetDistanceBaselineModel:
         self.target_distance = self.env.unwrapped.config["target_distance"]
 
         self.max_acc = self.env.unwrapped.robot.max_acc
-        
-    def learn(self, total_timesteps: int, callback: PlottingCallback):
-        obs, info = self.env.reset()
-        timestep = 0
-        while timestep < total_timesteps:
-            total_reward = 0
-            done = False
-            while not done:
-                action, _states = self.predict(obs, deterministic=True)
-                # print(f'Observation: {obs} | Action: {action}')
-                obs, reward, done, truncated, info = self.env.step(action)
-                callback.locals['rewards'] = [reward]
-                callback.locals['dones'] = [done]
-                callback._on_step()
-                timestep += 1
-                total_reward += reward
-                if done:
-                    obs, info = self.env.reset()
-            print("Episode reward: {}".format(total_reward))
 
     def estimate_distance(self, state):
         beta = abs(state[1]*self.timestep + state[0]-self.state[0])
@@ -48,6 +30,7 @@ class TargetDistanceBaselineModel:
         #print(f"alpha: {alpha}\nb: {b}\nbeta: {beta}\nEstimate: {estimated_distance}")
         return np.concatenate([state,np.array([estimated_distance])])
 
+    # TODO: reprogram to fix
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         if self.state is None:
             self.state = state

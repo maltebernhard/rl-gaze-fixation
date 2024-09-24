@@ -67,15 +67,8 @@ agents:
     contingent_agent: 2
 
   - id: 5
-    type: MXTR
+    type: MX2R
     model_type: TOM
-    observation_keys:
-      - obstacle1_offset_angle
-      - obstacle1_coverage
-      - obstacle2_offset_angle
-      - obstacle2_coverage
-      - obstacle3_offset_angle
-      - obstacle3_coverage
     mixture_mode: 1
     experts: [3, 4]
 

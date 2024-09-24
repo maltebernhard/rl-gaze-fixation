@@ -1,7 +1,7 @@
 from typing import List
 import matplotlib.pyplot as plt
 
-from agent.callback import PlottingCallback
+from utils.callback import PlottingCallback
     
 def plot_training_progress(callback: PlottingCallback):
     # Plot the rewards
