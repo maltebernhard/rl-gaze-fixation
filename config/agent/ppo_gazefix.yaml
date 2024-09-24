@@ -20,7 +20,4 @@ agents:
   - id: 2
     type: CONT
     model_type: GFM
-    observation_keys:
-      - target_offset_angle
-      - del_target_offset_angle
     contingent_agent: 1

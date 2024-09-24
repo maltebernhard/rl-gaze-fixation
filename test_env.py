@@ -1,9 +1,8 @@
 import time
-import gymnasium as gym
 import numpy as np
 import yaml
+from agent.base_agent import BaseAgent
 import environment
-from agent.OLD_model import Model
 
 # ============================= config =================================
 
@@ -29,22 +28,9 @@ env_config = {
     #"seed":                int(time.time())
 }
 
-# with open('./config/env_config.yaml', 'r') as file:
-#     env_config = yaml.load(file, Loader=yaml.SafeLoader)
+with open("./config/agent/(targ_obst)_mixt_gaze.yaml") as file:
+    model_config = yaml.load(file, Loader=yaml.FullLoader)
 
-# ==========================================================================
+base_agent = BaseAgent(model_config, env_config)
 
-# create and wrap the environment
-# env = gym.make(id='GazeFixAgent',
-#                config = env_config
-#               )
-
-env = gym.make(id='GazeFixEnv',
-               config = env_config
-              )
-
-np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-
-baseline_model = Model(env, {"model_selection":0})
-
-baseline_model.run_model(1, 1, False)
+base_agent.run(1000, False)

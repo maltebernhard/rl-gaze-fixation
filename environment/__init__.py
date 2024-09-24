@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 
+#np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 np.set_printoptions(precision=2)
 
 gym.envs.register(

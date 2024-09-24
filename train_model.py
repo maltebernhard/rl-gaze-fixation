@@ -1,34 +1,14 @@
-import gymnasium as gym
 import yaml
-import environment
-from utils.user_interface import user_prompt
-from agent.agent import Policy
-from utils.plotting import plot_training_progress
+from agent.base_agent import BaseAgent
 
-# ==============================================================
+with open("./config/env/three_obstacles.yaml") as file:
+    env_config = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent/(targ_obst)_ppo_gaze.yaml") as file:
+    model_config = yaml.load(file, Loader=yaml.FullLoader)
 
-with open('./config/env_config.yaml', 'r') as file:
-    env_config = yaml.load(file, Loader=yaml.SafeLoader)
-with open('./config/OLD_model_config.yaml', 'r') as file:
-    model_config = yaml.load(file, Loader=yaml.SafeLoader)
-    model_selection = model_config["model_selection"]
+base_agent = BaseAgent(model_config, env_config)
 
-env = gym.make(
-    id = 'GazeFixEnv',
-    config = env_config
-)
-
-# TODO: adjust loading, resetting and all that
-model = Policy(env, model_config)
-model.reset()
-
-if model_selection != 0:
-    model.learn(model_config["total_timesteps"])
-    plot_training_progress(model.callback)
-
-if model_selection == 0 or user_prompt("Do you want a demo run?"):
-    model.run_model()
-
-if model_selection != 0:
-    if user_prompt("Do you want to save the model?"):
-        model.save()
+base_agent.learn_agent(3, 200000, plot=True)
+base_agent.save()
+for episode in range(10):
+    base_agent.run_agent(4, timesteps=1000, prints=True)

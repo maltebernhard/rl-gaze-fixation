@@ -30,6 +30,20 @@ def prompt_zip_file_selection() -> str:
         return os.path.splitext("./training_data/" + date_folder + '/' + os.path.basename(file_path))[0]
     return None
 
+def prompt_folder_selection() -> str:
+    # Create the root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    # Use filedialog to create a directory selection dialog
+    folder_path = filedialog.askdirectory(
+        title="Select a folder",
+        initialdir=os.getcwd() + "/training_data"
+    )
+    # Destroy the root window
+    root.destroy()
+    # Return the selected folder path
+    return folder_path if folder_path else None
+
 def user_prompt(question: str):
     # Create the root window
     root = tk.Tk()

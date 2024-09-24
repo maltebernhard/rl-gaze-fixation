@@ -170,8 +170,7 @@ class GazeFixEnv(gym.Env):
         
     def get_reward(self):
         if self.collision:
-            return - 1.0
-            #return - self.total_reward - self.episode_length
+            return 0.0
         reward = 0.0
         # reward for being close to target distance
         dist = self.robot_target_distance()
@@ -186,6 +185,7 @@ class GazeFixEnv(gym.Env):
         # penalize energy waste
         # reward -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 5
         # reward -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 5
+
         return reward
     
     def get_terminated(self):

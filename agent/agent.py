@@ -35,20 +35,17 @@ class StructureAgent:
     def run(self, prints = False, steps = 0, env_seed = None):
         total_reward = 0
         step = 0
-        #obs, info = self.env.unwrapped.reset_full_observation(seed=env_seed)
         obs, info = self.env.reset(seed=env_seed)
         if prints:
             print(f'-------------------- Reset ----------------------')
             print(f'Observation: {obs}')
         done = False
         while not done and (steps==0 or step < steps):
-            #action, _states = self.predict_full_observation(obs)
             action, _states = self.predict(obs)
             if prints:
                 print(f'-------------------- Step {step} ----------------------')
                 print(f'Observation: {obs}')
                 print(f'Action:      {action}')
-            #obs, reward, done, truncated, info = self.env.unwrapped.step_full_observation(action)
             obs, reward, done, truncated, info = self.env.step(action)
             if prints:
                 print(f'Reward:      {reward}')

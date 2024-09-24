@@ -5,10 +5,12 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from typing import Dict, List
 from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.base_class import BaseAlgorithm
 import yaml
 
 from agent.agent import Contingency, MixtureOfExperts, MixtureOfTwoExperts, Policy, StructureAgent
 from utils.plotting import plot_training_progress
+from utils.user_interface import prompt_folder_selection
 
 # =============================================================================
 
@@ -20,23 +22,8 @@ class BaseAgent:
         self.parse_agents(self.base_env)
         self.reset()
 
-    def make_base_env(self, env_config: dict):
-        env = gym.make(
-            id='GazeFixEnv',
-            config = env_config
-        )
-        base_env = gym.make(
-            id='BaseEnv',
-            env = env,
-        )
-        base_env.set_base_agent(self)
-        return base_env
-
-    def set_last_agent(self, last_agent) -> None:
-        self.last_agent: StructureAgent = last_agent
-
     def predict(self, observation: np.ndarray) -> np.ndarray:
-        return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation)
+        return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation), []
     
     def reset(self) -> None:
         set_random_seed(self.agent_config["random_seed"])
@@ -53,8 +40,68 @@ class BaseAgent:
         with open(folder + 'agent_config.yaml', 'w') as file:
             yaml.dump(self.agent_config, file, default_flow_style=False)
 
-    def load(self):
-        pass
+    @classmethod
+    def load(self, folder = None):
+        if folder is None:
+            folder = prompt_folder_selection()
+        with open(folder + 'env_config.yaml', 'r') as file:
+            env_config = yaml.load(file, Loader=yaml.SafeLoader)
+        with open(folder + 'agent_config.yaml', 'r') as file:
+            agent_config = yaml.load(file, Loader=yaml.SafeLoader)
+        base_agent = BaseAgent(agent_config, env_config)
+        for id, agent in base_agent.agents.items():
+            filename = f"{id}_model"
+            agent.load(folder + filename)
+        return base_agent
+
+    def learn(self, total_timesteps: int, timesteps_per_run: int, plot=False) -> None:
+        timesteps: int = 0
+        while timesteps < total_timesteps:
+            for agent in self.agents.values():
+                # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
+                if isinstance(agent.model, BaseAlgorithm):
+                    agent.learn(timesteps_per_run)
+                if plot:
+                    plot_training_progress(agent.callback)
+                timesteps += timesteps_per_run
+
+    def run(self, prints = False, steps = 0, env_seed = None) -> None:
+        total_reward = 0
+        step = 0
+        obs, info = self.base_env.reset(seed=env_seed)
+        if prints:
+            print(f'-------------------- Reset ----------------------')
+            print(f'Observation: {obs}')
+        done = False
+        while not done and (steps==0 or step < steps):
+            action, _states = self.predict(obs)
+            if prints:
+                print(f'-------------------- Step {step} ----------------------')
+                print(f'Observation: {obs}')
+                print(f'Action:      {action}')
+            obs, reward, done, truncated, info = self.base_env.step(action)
+            if prints:
+                print(f'Reward:      {reward}')
+            total_reward += reward
+            step += 1
+            self.base_env.render()
+        self.base_env.close()
+        obs, info = self.base_env.reset()
+        print(f"Episode finished with total reward {total_reward}")
+
+    def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
+        if agent in self.agents.keys():
+            self.agents[agent].learn(timesteps)
+            if plot:
+                plot_training_progress(self.agents[agent].callback)
+        else:
+            raise ValueError(f"Invalid agent key: {agent}")
+        
+    def run_agent(self, agent: int, timesteps: int, prints: bool = False) -> None:
+        if agent in self.agents.keys():
+            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=self.env_config["seed"])
+        else:
+            raise ValueError(f"Invalid agent key: {agent}")
 
     def parse_agents(self, base_env):
         agents_config: Dict[int, dict] = self.agent_config["agents"]
@@ -91,19 +138,20 @@ class BaseAgent:
         for agent in self.agents.values():
             agent.env.reset(key=self.env_config["seed"])
 
-    def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
-        if agent in self.agents.keys():
-            self.agents[agent].learn(timesteps)
-            if plot:
-                plot_training_progress(self.agents[agent].callback)
-        else:
-            raise ValueError(f"Invalid agent key: {agent}")
-        
-    def run_agent(self, agent: int, timesteps: int, prints: bool = False) -> None:
-        if agent in self.agents.keys():
-            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=self.env_config["seed"])
-        else:
-            raise ValueError(f"Invalid agent key: {agent}")
+    def make_base_env(self, env_config: dict):
+        env = gym.make(
+            id='GazeFixEnv',
+            config = env_config
+        )
+        base_env = gym.make(
+            id='BaseEnv',
+            env = env,
+        )
+        base_env.set_base_agent(self)
+        return base_env
+
+    def set_last_agent(self, last_agent) -> None:
+        self.last_agent: StructureAgent = last_agent
 
     # ========================== visualization ==================================
 

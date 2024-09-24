@@ -27,6 +27,7 @@
 #   - type: <str>
 #   - model_type: <str>
 #   - observation_keys: <list>
+#     (only if model is learnable)
 #   - model specific params
 
 random_seed: 2
@@ -42,34 +43,24 @@ agents:
     action_space_dimensionality: 2
 
   - id: 3
-    type: CONT
-    model_type: GFM
-    contingent_agent: 1
-
-  - id: 4
-    type: CONT
-    model_type: GFM
-    contingent_agent: 2
-
-  # - id: 5
-  #   type: MX2R
-  #   model_type: TOM
-  #   mixture_mode: 1
-  #   experts: [3, 4]
-
-  - id: 5
-    type: MXTR
+    type: MX2R
     model_type: PPO
     observation_keys:
-      - obstacle1_offset_angle
-      - obstacle1_coverage
-      - obstacle2_offset_angle
-      - obstacle2_coverage
-      - obstacle3_offset_angle
-      - obstacle3_coverage
-    mixture_mode: 1
-    experts: [3, 4]
+      - "vel_frontal"
+      - "vel_lateral"
+      - "robot_target_distance"
+      - "obstacle1_offset_angle"
+      - "obstacle1_distance"
+      - "obstacle2_offset_angle"
+      - "obstacle2_distance"
+    mixture_mode: 2
+    experts: [1, 2]
     policy_type: MlpPolicy
     learning_rate: 0.001
     verbose: 1
     seed: 130
+
+  - id: 4
+    type: CONT
+    model_type: GFM
+    contingent_agent: 3

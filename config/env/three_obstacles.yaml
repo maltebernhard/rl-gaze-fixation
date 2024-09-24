@@ -1,0 +1,50 @@
+# =============================== ENV CONFIG ======================================
+# env seed
+seed:               1
+# seconds per env step
+timestep:           0.05
+# observe distance to target and obstacles - deprecate that shit
+observe_distance:   false
+# render window dimensions, influences target and obstacle sizes and spawn distances
+world_size:         50.0
+# max. sim time seconds per episonde
+episode_length:     30.0
+# collisions with environment borders - DEPRECATED
+wall_collision:     false
+
+
+# number of obstacles in observation space
+num_obstacles:      3
+# use or not
+use_obstacles:      true
+
+
+# maximum target_distance as objective (minimum is 0.0, uniform sampling)
+target_distance:    1.0
+# size of reward margin aorund target distance
+reward_margin:      10.0
+# size of penalty margin around obstacles
+penalty_margin:     5.0
+
+
+# robot config
+robot_max_acc:      8.0
+robot_max_acc_rot:  10.0
+robot_max_vel:      8.0
+robot_max_vel_rot:  3.0
+robot_sensor_angle: 3.0
+
+# =============================== AGENT CONFIG ========================================
+
+# 1 - continuous acceleration
+# 2 - fixed acceleration
+action_mode:        1
+
+
+
+
+
+
+
+
+

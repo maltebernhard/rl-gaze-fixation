@@ -14,7 +14,7 @@ class BaseEnv(gym.Env):
     
     # TODO: find better way to ignore this partial action
     def step(self, partial_action):
-        action = self.base_agent.predict(self.last_observation)
+        action = self.base_agent.predict(self.last_observation)[0]
         self.last_observation, reward, done, truncated, info = self.env.step(action)
         return self.last_observation, reward, done, truncated, info
 
