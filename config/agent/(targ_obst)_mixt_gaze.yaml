@@ -32,23 +32,23 @@
 
 random_seed: 2
 agents:
-  - id: 1
+  - id: Avoid-Nearest-Obstacle-Agent
     type: PLCY
     model_type: ANO
     action_space_dimensionality: 2
 
-  - id: 2
+  - id: Go-Towards-Target-Agent
     type: PLCY
     model_type: GTT
     action_space_dimensionality: 2
 
-  - id: 3
+  - id: Mixture-Agent
     type: MX2R
     model_type: TOM
     mixture_mode: 2
-    experts: [1, 2]
+    experts: [Avoid-Nearest-Obstacle-Agent, Go-Towards-Target-Agent]
 
-  - id: 4
+  - id: Gaze-Fixation-Agent
     type: CONT
     model_type: GFM
-    contingent_agent: 3
+    contingent_agent: Mixture-Agent

@@ -32,15 +32,39 @@
 
 random_seed: 2
 agents:
-  - id: Avoid-Nearest-Obstacle-Agent
-    type: PLCY
-    model_type: ANO
-    action_space_dimensionality: 2
-
   - id: Go-Towards-Target-Agent
     type: PLCY
-    model_type: GTT
-    action_space_dimensionality: 2
+    model_type: PPO
+    observation_keys:
+      - "robot_target_distance"
+      - "vel_rot"
+      - "vel_frontal"
+      - "vel_lateral"
+    reward_indices:
+      - 0
+    policy_type: MlpPolicy
+    learning_rate: 0.001
+    verbose: 1
+    seed: 130
+
+  - id: Avoid-Nearest-Obstacle-Agent
+    type: PLCY
+    model_type: PPO
+    observation_keys:
+      - "vel_frontal"
+      - "vel_lateral"
+      - "robot_target_distance"
+      - "obstacle1_offset_angle"
+      - "obstacle1_distance"
+      - "obstacle2_offset_angle"
+      - "obstacle2_distance"
+      - "obstacle3_offset_angle"
+      - "obstacle3_distance"
+    reward_indices: [1]
+    policy_type: MlpPolicy
+    learning_rate: 0.001
+    verbose: 1
+    seed: 130
 
   - id: Mixture-Agent
     type: MX2R
@@ -55,14 +79,15 @@ agents:
       - "obstacle2_distance"
       - "obstacle3_offset_angle"
       - "obstacle3_distance"
+    reward_indices: [0, 1]
     mixture_mode: 2
-    experts: [Avoid-Nearest-Obstacle-Agent, Go-Towards-Target-Agent]
+    experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent]
     policy_type: MlpPolicy
     learning_rate: 0.001
     verbose: 1
     seed: 130
 
-  - id: Gaze-Fixation-Agent
+  - id: 4
     type: CONT
     model_type: GFM
     contingent_agent: Mixture-Agent

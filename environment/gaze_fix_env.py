@@ -122,15 +122,16 @@ class GazeFixEnv(gym.Env):
             action = self.action
         self.move_robot(action)
         self.move_target()
-        self.last_observation, rew, done, trun, info = self.get_observation(), self.get_reward(), self.get_terminated(), False, self.get_info()
+        self.last_observation, rewards, done, trun, info = self.get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
         self.history.insert(0, self.last_observation)
         if len(self.history) > 2:
             self.history.pop()
 
+        rew = np.sum(rewards)
         self.total_reward += rew
-        return self.last_observation, rew, done, trun, info
+        return self.last_observation, rewards, done, trun, info
     
     def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
         if seed is not None:
@@ -168,25 +169,33 @@ class GazeFixEnv(gym.Env):
             observation.append(obs.calculate_value())
         return np.array(observation)
         
-    def get_reward(self):
-        if self.collision:
-            return 0.0
-        reward = 0.0
+    def get_rewards(self):
         # reward for being close to target distance
+        target_proximity_reward = 0.0
         dist = self.robot_target_distance()
         if abs(dist-self.target.distance) < self.reward_margin:
-            reward += 1.0 / (abs(dist-self.target.distance) + 1.0) * self.timestep
+            target_proximity_reward = 1.0 / (abs(dist-self.target.distance) + 1.0) * self.timestep
         # penalty for being close to obstacle
+        obstacle_proximity_penalty = 0.0
         if self.use_obstacles:
             for obstacle in self.obstacles:
                 dist = np.linalg.norm(self.robot.pos-obstacle.pos)
                 if abs(dist-obstacle.radius) < self.penalty_margin:
-                    reward -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / 30
+                    obstacle_proximity_penalty -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / 30
         # penalize energy waste
-        # reward -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 5
-        # reward -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 5
+        energy_waste_penalty = 0.0
+        energy_waste_penalty -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 10
+        energy_waste_penalty -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 10
 
-        return reward
+        # penalize collision
+        collision_penalty = 1.0 if self.collision else 0.0
+
+        return np.array([
+            target_proximity_reward,
+            obstacle_proximity_penalty,
+            energy_waste_penalty,
+            collision_penalty
+        ])
     
     def get_terminated(self):
         return self.time > self.episode_length or self.collision
@@ -312,23 +321,16 @@ class GazeFixEnv(gym.Env):
                 # angle
                 angle = self.normalize_angle(np.arctan2(obstacle.pos[1]-self.robot.pos[1], obstacle.pos[0]-self.robot.pos[0]) - self.robot.orientation)
                 if not (angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2):
-                    angle = np.pi
-                    if self.observe_distance:
-                        obstacles += [angle, 0.0, -1.0]
-                    else:
-                        obstacles += [angle, 0.0]
+                    obstacles += [np.pi, 0.0, -1.0]
                     continue
                 obs.append(angle)
                 # coverage
                 obs.append(self.calculate_circle_coverage(obstacle))
                 # distance
-                if self.observe_distance:
-                    obs.append(np.linalg.norm(obstacle.pos-self.robot.pos)-obstacle.radius)
+                obs.append(np.linalg.norm(obstacle.pos-self.robot.pos)-obstacle.radius)
                 obstacles += obs
         else:
-            obs = [np.pi, 0.0]
-            if self.observe_distance:
-                obs.append(-1.0)
+            obs = [np.pi, 0.0, -1.0]
             obstacles = self.num_obstacles * obs
         return np.array(obstacles)  
 
@@ -459,7 +461,7 @@ class GazeFixEnv(gym.Env):
         episode_reward = font.render('Total reward:', True, BLACK)
         clock_surface_val = font.render(f'{self.num_steps}', True, BLACK)
         time_surface_val = font.render('{0:.2f}'.format(self.time), True, BLACK)
-        step_reward_val = font.render('{0:.4f}'.format(self.get_reward()), True, BLACK)
+        step_reward_val = font.render('{0:.4f}'.format(np.sum(self.get_rewards())), True, BLACK)
         episode_reward_val = font.render('{0:.4f}'.format(self.total_reward), True, BLACK)
 
         self.viewer.blit(clock_surface, (10, 5))

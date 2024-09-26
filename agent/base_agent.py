@@ -9,6 +9,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 import yaml
 
 from agent.agent import Contingency, MixtureOfExperts, MixtureOfTwoExperts, Policy, StructureAgent
+from utils.callback import ModularAgentCallback
 from utils.plotting import plot_training_progress
 from utils.user_interface import prompt_folder_selection
 
@@ -19,6 +20,7 @@ class BaseAgent:
         self.agent_config = agent_config
         self.env_config = env_config
         self.base_env = self.make_base_env(env_config)
+        self.callback = ModularAgentCallback()
         self.parse_agents(self.base_env)
         self.reset()
 
@@ -54,24 +56,29 @@ class BaseAgent:
             agent.load(folder + filename)
         return base_agent
 
-    def learn(self, total_timesteps: int, timesteps_per_run: int, plot=False) -> None:
+    def learn(self, total_timesteps: int, timesteps_per_run: int, save=True, plot=False) -> None:
         timesteps: int = 0
+        total_runs = int(np.ceil(total_timesteps / timesteps_per_run))
+        run: int = 0
         while timesteps < total_timesteps:
+            run += 1
             for agent in self.agents.values():
+                
+                print(f"{agent.id}: Training run {run} / {total_runs}")
                 # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
                 if isinstance(agent.model, BaseAlgorithm):
+                    self.callback.set_model_name(agent.id)
                     agent.learn(timesteps_per_run)
-                if plot:
-                    plot_training_progress(agent.callback)
                 timesteps += timesteps_per_run
+        if save:
+            self.save()
+        if plot:
+            self.callback.plot_training_progress()
 
     def run(self, prints = False, steps = 0, env_seed = None) -> None:
         total_reward = 0
         step = 0
         obs, info = self.base_env.reset(seed=env_seed)
-        if prints:
-            print(f'-------------------- Reset ----------------------')
-            print(f'Observation: {obs}')
         done = False
         while not done and (steps==0 or step < steps):
             action, _states = self.predict(obs)
@@ -91,15 +98,16 @@ class BaseAgent:
 
     def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
         if agent in self.agents.keys():
+            self.callback.set_model_name(agent)
             self.agents[agent].learn(timesteps)
             if plot:
-                plot_training_progress(self.agents[agent].callback)
+                self.callback.plot_training_progress()
         else:
             raise ValueError(f"Invalid agent key: {agent}")
         
-    def run_agent(self, agent: int, timesteps: int, prints: bool = False) -> None:
+    def run_agent(self, agent: int, timesteps: int, prints: bool = False, env_seed = None) -> None:
         if agent in self.agents.keys():
-            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=self.env_config["seed"])
+            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=env_seed)
         else:
             raise ValueError(f"Invalid agent key: {agent}")
 
@@ -110,31 +118,37 @@ class BaseAgent:
             if agent_config["type"] == "PLCY":
                 self.agents[agent_config["id"]] = Policy(
                     base_env = base_env,
-                    agent_config = agent_config
+                    agent_config = agent_config,
+                    callback = self.callback
                 )
+                print(f"Policy agent {agent_config['id']} created")
             elif agent_config["type"] == "CONT":
                 self.agents[agent_config["id"]] = Contingency(
                     base_env = base_env,
                     agent_config = agent_config,
+                    callback = self.callback,
                     contingent_agent = self.agents[agent_config["contingent_agent"]]
                 )
+                print(f"Contingency agent {agent_config['id']} created")
             elif agent_config["type"] == "MXTR":
                 self.agents[agent_config["id"]] = MixtureOfExperts(
                     base_env = base_env,
                     agent_config = agent_config,
+                    callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
+                print(f"Mixture-of-Experts agent {agent_config['id']} created")
             elif agent_config["type"] == "MX2R":
                 self.agents[agent_config["id"]] = MixtureOfTwoExperts(
                     base_env = base_env,
                     agent_config = agent_config,
+                    callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
-
+                print(f"Mixture-of-Two-Experts agent {agent_config['id']} created")
             else:
-                raise ValueError(f"Unknown model type: {agent_config['type']}")
-        key = max(self.agents.keys())
-        self.set_last_agent(self.agents[key])
+                raise ValueError(f"Unknown model type: {agent_config['type']}")  
+        self.set_last_agent()
         for agent in self.agents.values():
             agent.env.reset(key=self.env_config["seed"])
 
@@ -150,8 +164,19 @@ class BaseAgent:
         base_env.set_base_agent(self)
         return base_env
 
-    def set_last_agent(self, last_agent) -> None:
-        self.last_agent: StructureAgent = last_agent
+    def set_last_agent(self) -> None:
+        for agent_id, agent in self.agents.items():
+            is_last_agent = True
+            for other_agent in self.agents.values():
+                if other_agent.config["type"] == "CONT" and other_agent.config["contingent_agent"] == agent_id:
+                    is_last_agent = False
+                    break
+                elif (other_agent.config["type"] == "MXTR" or other_agent.config["type"] == "MX2R") and (agent_id in other_agent.config["experts"]):
+                    is_last_agent = False
+                    break
+            if is_last_agent:
+                self.last_agent = agent
+                return
 
     # ========================== visualization ==================================
 

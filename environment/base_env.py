@@ -1,4 +1,5 @@
 import gymnasium as gym
+import numpy as np
 
 class BaseEnv(gym.Env):
     def __init__(self, env: gym.Env):
@@ -15,8 +16,8 @@ class BaseEnv(gym.Env):
     # TODO: find better way to ignore this partial action
     def step(self, partial_action):
         action = self.base_agent.predict(self.last_observation)[0]
-        self.last_observation, reward, done, truncated, info = self.env.step(action)
-        return self.last_observation, reward, done, truncated, info
+        self.last_observation, rewards, done, truncated, info = self.env.step(action)
+        return self.last_observation, rewards, done, truncated, info
 
     def reset(self, seed=None, **kwargs):
         self.last_observation, info = self.env.reset(seed=seed, **kwargs)

@@ -16,7 +16,6 @@ env_config = {
     "robot_max_acc":       8.0,
     "robot_max_acc_rot":   10.0,
     "action_mode":         1,
-    "observe_distance":    False,
     "target_distance":     10.0,
     "reward_margin":       10.0,
     "penalty_margin":      5.0,

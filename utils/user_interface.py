@@ -42,7 +42,7 @@ def prompt_folder_selection() -> str:
     # Destroy the root window
     root.destroy()
     # Return the selected folder path
-    return folder_path if folder_path else None
+    return folder_path + '/' if folder_path else None
 
 def user_prompt(question: str):
     # Create the root window

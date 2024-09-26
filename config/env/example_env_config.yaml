@@ -3,8 +3,6 @@
 seed:               2
 # seconds per env step
 timestep:           0.05
-# observe distance to target and obstacles - deprecate that shit
-observe_distance:   false
 # render window dimensions, influences target and obstacle sizes and spawn distances
 world_size:         50.0
 # max. sim time seconds per episonde

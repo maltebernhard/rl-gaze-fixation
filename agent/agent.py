@@ -10,13 +10,13 @@ from agent.models.avoid_nearest_obstacle import AvoidNearestObstacleModel
 from agent.models.towards_target import TowardsTargetModel
 from agent.models.gaze_fixation import GazeFixationModel
 from agent.models.target_following_obstacle_evasion_mixture import TargetFollowingObstacleEvasionMixtureModel
-from utils.callback import PlottingCallback
+from utils.callback import PlottingCallback, ModularAgentCallback
 from environment.structure_env import StructureEnv
 
 # =======================================================    
 
 class StructureAgent:
-    def __init__(self, base_env, agent_config: dict = None) -> None:
+    def __init__(self, base_env, agent_config: dict, callback: ModularAgentCallback) -> None:
         self.id = agent_config["id"]
         self.config = agent_config
         self.observation_keys = None
@@ -24,21 +24,19 @@ class StructureAgent:
             id='StructureEnv',
             base_env = base_env,
             observation_keys = self.get_observation_keys(),
-            action_space = self.create_action_space()
+            action_space = self.create_action_space(),
+            reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0,1,2])
         )
         self.observation_indices = self.env.get_wrapper_attr("observation_indices")
         self.model: Model = None
         self.set_model()
         self.model_name = agent_config["model_type"]
-        self.set_callback()
+        self.set_callback(callback)
 
     def run(self, prints = False, steps = 0, env_seed = None):
         total_reward = 0
         step = 0
         obs, info = self.env.reset(seed=env_seed)
-        if prints:
-            print(f'-------------------- Reset ----------------------')
-            print(f'Observation: {obs}')
         done = False
         while not done and (steps==0 or step < steps):
             action, _states = self.predict(obs)
@@ -80,12 +78,11 @@ class StructureAgent:
         if self.env.unwrapped.last_action is not None:
             action = self.env.unwrapped.last_action.copy(), None
             self.env.unwrapped.last_action = None
-            return action
         # if it isn't, predict action again
         else:
             observation = observation[self.observation_indices]
             action = self.model.predict(observation)
-            return action
+        return action
 
     def set_callback(self, callback=None) -> None:
         if callback is None:
@@ -112,8 +109,8 @@ class StructureAgent:
 # ===================================================================================
 
 class Policy(StructureAgent):
-    def __init__(self, base_env, agent_config) -> None:
-        super().__init__(base_env, agent_config)
+    def __init__(self, base_env, agent_config, callback) -> None:
+        super().__init__(base_env, agent_config, callback)
 
     def create_action_space(self):
         # TODO: make this more general
@@ -151,9 +148,9 @@ class Policy(StructureAgent):
 # =========================================================================
 
 class Contingency(StructureAgent):
-    def __init__(self, base_env, agent_config, contingent_agent) -> None:
+    def __init__(self, base_env, agent_config, callback, contingent_agent) -> None:
         self.contingent_agent: StructureAgent = contingent_agent
-        super().__init__(base_env, agent_config)
+        super().__init__(base_env, agent_config, callback)
 
     def create_action_space(self):
         # TODO: make this more general
@@ -189,10 +186,10 @@ class Contingency(StructureAgent):
 # =========================================================================================================
 
 class MixtureOfExperts(StructureAgent):
-    def __init__(self, base_env, agent_config, experts):
+    def __init__(self, base_env, agent_config, callback, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
-        super().__init__(base_env, agent_config)
+        super().__init__(base_env, agent_config, callback)
 
     def create_action_space(self):
         if self.mixture_mode == 1:
@@ -247,10 +244,10 @@ class MixtureOfExperts(StructureAgent):
 # =========================================================================================================
 
 class MixtureOfTwoExperts(StructureAgent):
-    def __init__(self, base_env, agent_config, experts):
+    def __init__(self, base_env, agent_config, callback, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
-        super().__init__(base_env, agent_config)
+        super().__init__(base_env, agent_config, callback)
 
     def create_action_space(self):
         if self.mixture_mode == 1:
