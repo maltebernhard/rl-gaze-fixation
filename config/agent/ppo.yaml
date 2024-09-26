@@ -42,7 +42,14 @@ agents:
       - vel_rot
       - vel_frontal
       - vel_lateral
-    action_space_dimensionality: 2
+      - obstacle1_offset_angle
+      - obstacle1_distance
+      - obstacle2_offset_angle
+      - obstacle2_distance
+      - obstacle3_offset_angle
+      - obstacle3_distance
+    reward_indices: [0, 1, 2]
+    action_space_dimensionality: 3
     policy_type: MlpPolicy
     learning_rate: 0.001
     verbose: 1

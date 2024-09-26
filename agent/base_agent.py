@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -8,10 +9,14 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.base_class import BaseAlgorithm
 import yaml
 
-from agent.agent import Contingency, MixtureOfExperts, MixtureOfTwoExperts, Policy, StructureAgent
+from agent.agents.agent import StructureAgent
+from agent.agents.contingency import Contingency
+from agent.agents.mixture import MixtureOfExperts
+from agent.agents.mix2re import MixtureOfTwoExperts
+from agent.agents.policy import Policy
 from utils.callback import ModularAgentCallback
-from utils.plotting import plot_training_progress
 from utils.user_interface import prompt_folder_selection
+from tqdm import tqdm
 
 # =============================================================================
 
@@ -23,8 +28,12 @@ class BaseAgent:
         self.callback = ModularAgentCallback()
         self.parse_agents(self.base_env)
         self.reset()
+        self.training = False
+        self.folder = None
 
-    def predict(self, observation: np.ndarray) -> np.ndarray:
+    def predict(self, observation: np.ndarray, rewards=None) -> np.ndarray:
+        if rewards is not None:
+            self.callback.current_base_episode_reward += np.sum(rewards)
         return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation), []
     
     def reset(self) -> None:
@@ -32,7 +41,11 @@ class BaseAgent:
 
     def save(self, folder = None):
         if folder is None:
-            folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+            if self.folder is None:
+                folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+                self.folder = folder
+            else:
+                folder = self.folder
         for id, agent in self.agents.items():
             filename = f"{id}_model"
             agent.model.save(folder + filename)
@@ -41,6 +54,12 @@ class BaseAgent:
             yaml.dump(self.env_config, file, default_flow_style=False)
         with open(folder + 'agent_config.yaml', 'w') as file:
             yaml.dump(self.agent_config, file, default_flow_style=False)
+        # Convert numpy arrays to lists before saving
+        episode_rewards_serializable = {k: [arr.tolist() for arr in v] for k, v in self.callback.episode_rewards.items()}
+        with open(folder + 'episode_rewards.yaml', 'w') as file:
+            yaml.dump(episode_rewards_serializable, file, default_flow_style=False)
+        self.callback.plot_training_progress(False, folder)
+        self.callback.plot_subagent_training_progress(False, folder)
 
     @classmethod
     def load(self, folder = None):
@@ -54,26 +73,43 @@ class BaseAgent:
         for id, agent in base_agent.agents.items():
             filename = f"{id}_model"
             agent.load(folder + filename)
+        if 'episode_rewards.yaml' in os.listdir(folder):
+            with open(folder + 'episode_rewards.yaml', 'r') as file:
+                base_agent.callback.episode_rewards = yaml.load(file, Loader=yaml.SafeLoader)
+            # Convert lists back to numpy arrays
+            base_agent.callback.episode_rewards = {k: [np.array(arr) for arr in v] for k, v in base_agent.callback.episode_rewards.items()}
+        base_agent.folder = folder
         return base_agent
 
     def learn(self, total_timesteps: int, timesteps_per_run: int, save=True, plot=False) -> None:
         timesteps: int = 0
-        total_runs = int(np.ceil(total_timesteps / timesteps_per_run))
+        trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
+        total_runs = int(np.ceil(total_timesteps / timesteps_per_run / len(trainable_agents)))
         run: int = 0
-        while timesteps < total_timesteps:
-            run += 1
-            for agent in self.agents.values():
-                
-                print(f"{agent.id}: Training run {run} / {total_runs}")
-                # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
-                if isinstance(agent.model, BaseAlgorithm):
+        progress_bar = tqdm(total=total_runs, desc="Training Progress", position=0, leave=True, dynamic_ncols=True)
+        self.training = True
+        try:
+            while timesteps < total_timesteps:
+                for agent in trainable_agents:
+                    run += 1
+                    # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
+                    tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
                     self.callback.set_model_name(agent.id)
                     agent.learn(timesteps_per_run)
-                timesteps += timesteps_per_run
+                    timesteps += timesteps_per_run
+                    progress_bar.update(1)
+        except KeyboardInterrupt:
+            print("Training interrupted by user")
+        except Exception as e:
+            progress_bar.close()
+            raise e
+        self.training = False
+        progress_bar.close()
         if save:
             self.save()
         if plot:
-            self.callback.plot_training_progress()
+            self.callback.plot_training_progress(True)
+            self.callback.plot_subagent_training_progress(True)
 
     def run(self, prints = False, steps = 0, env_seed = None) -> None:
         total_reward = 0

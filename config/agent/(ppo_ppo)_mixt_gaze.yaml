@@ -38,9 +38,14 @@ agents:
     observation_keys:
       - "target_distance"
       - "robot_target_distance"
-      - "vel_rot"
       - "vel_frontal"
       - "vel_lateral"
+      - "obstacle1_offset_angle"
+      - "obstacle1_distance"
+      - "obstacle2_offset_angle"
+      - "obstacle2_distance"
+      - "obstacle3_offset_angle"
+      - "obstacle3_distance"
     reward_indices:
       - 0
     policy_type: MlpPolicy
@@ -52,6 +57,8 @@ agents:
     type: PLCY
     model_type: PPO
     observation_keys:
+      - "target_distance"
+      - "robot_target_distance"
       - "vel_frontal"
       - "vel_lateral"
       - "obstacle1_offset_angle"
@@ -68,18 +75,7 @@ agents:
 
   - id: Mixture-Agent
     type: MX2R
-    model_type: PPO
-    observation_keys:
-      - "target_distance"
-      - "robot_target_distance"
-      - "vel_frontal"
-      - "vel_lateral"
-      - "obstacle1_offset_angle"
-      - "obstacle1_distance"
-      - "obstacle2_offset_angle"
-      - "obstacle2_distance"
-      - "obstacle3_offset_angle"
-      - "obstacle3_distance"
+    model_type: TOM
     reward_indices: [0, 1]
     mixture_mode: 2
     experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent]

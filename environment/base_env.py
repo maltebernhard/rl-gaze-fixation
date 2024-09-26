@@ -12,12 +12,13 @@ class BaseEnv(gym.Env):
         self.observation_space = self.env.observation_space
 
         self.last_observation = None
+        self.last_rewards = None
     
     # TODO: find better way to ignore this partial action
     def step(self, partial_action):
-        action = self.base_agent.predict(self.last_observation)[0]
-        self.last_observation, rewards, done, truncated, info = self.env.step(action)
-        return self.last_observation, rewards, done, truncated, info
+        action = self.base_agent.predict(self.last_observation, self.last_rewards)[0]
+        self.last_observation, self.last_rewards, done, truncated, info = self.env.step(action)
+        return self.last_observation, self.last_rewards, done, truncated, info
 
     def reset(self, seed=None, **kwargs):
         self.last_observation, info = self.env.reset(seed=seed, **kwargs)
