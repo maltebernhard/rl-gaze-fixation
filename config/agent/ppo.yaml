@@ -30,6 +30,7 @@
 #   - model specific params
 
 random_seed: 140
+name: monolithic ppo
 agents:
   - id: 1
     type: PLCY

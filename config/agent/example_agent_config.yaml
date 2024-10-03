@@ -30,6 +30,7 @@
 #   - model specific params
 
 random_seed: 2
+name: example agent
 agents:
   - id: 1
     type: PLCY

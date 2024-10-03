@@ -20,6 +20,8 @@ GREY = (200, 200, 200)
 
 SCREEN_SIZE = 900
 
+REWARD_RENDER_MODE = 1
+
 # =====================================================================================================
 
 class Robot:
@@ -196,7 +198,7 @@ class GazeFixEnv(gym.Env):
             energy_waste_penalty,
             collision_penalty
         ])
-    
+
     def get_terminated(self):
         return self.time > self.episode_length or self.collision
     
@@ -396,14 +398,21 @@ class GazeFixEnv(gym.Env):
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
                 self.video = vidmaker.Video(self.video_path + "GazeFixation.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
+        
         # Fill the screen
-        self.viewer.fill(GREY)
-        self.draw_fov()
+        if REWARD_RENDER_MODE == 1:
+            self.viewer.fill(GREY)
+            self.draw_fov()
+        else:
+            color_map = self.get_reward_color_map()
+            pygame.surfarray.blit_array(self.viewer, color_map)
+
         self.render_grid()
-        # draw target distance margin
-        self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
-        # draw target distance
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
+        if REWARD_RENDER_MODE == 1:
+            # draw target distance margin
+            self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
+            # draw target distance
+            pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
         # draw target
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
         # draw vision axis
@@ -415,7 +424,8 @@ class GazeFixEnv(gym.Env):
         if self.use_obstacles:
             for o in self.obstacles:
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
-                self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
+                if REWARD_RENDER_MODE == 1:
+                    self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
         # draw an arrow for the robot's action
         pygame.draw.line(self.viewer, RED, self.pxl_coordinates(self.robot.pos), self.pxl_coordinates(self.polar_point(self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])/self.robot.max_acc))))
 
@@ -492,3 +502,37 @@ class GazeFixEnv(gym.Env):
             x_pxl = int(self.screen_size/2 + (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
             y_pxl = int(self.screen_size/2 - (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)
         return (x_pxl, y_pxl)
+    
+    def get_reward_color_map(self) -> np.ndarray:
+        color_map = np.zeros((self.screen_size, self.screen_size, 3), dtype=np.uint8)
+        pixel_positions = np.zeros((self.screen_size, self.screen_size, 2), dtype=np.float64)
+        # Create a grid of pixel coordinates
+        x_coords = (np.arange(self.screen_size) - self.screen_size / 2) / self.scale
+        y_coords = (np.arange(self.screen_size) - self.screen_size / 2) / self.scale
+        x_grid, y_grid = np.meshgrid(x_coords, y_coords)
+        # Rotate the grid positions
+        rotation_matrix = self.rotation_matrix(self.robot.orientation - np.pi)
+        rotated_positions = np.einsum('ij,jkl->ikl', rotation_matrix, np.stack([x_grid, y_grid], axis=0))
+        # Translate the positions to the robot's position
+        pixel_positions = self.robot.pos + rotated_positions.transpose(1, 2, 0)
+        # Calculate position rewards
+        target_distances = np.linalg.norm(pixel_positions - self.target.pos, axis=2)
+        target_proximity_rewards = 1.0 / (np.abs(target_distances - self.target.distance) + 1.0)
+        obstacle_proximity_penalties = np.zeros_like(target_proximity_rewards)
+        for obstacle in self.obstacles:
+            obstacle_distances = np.linalg.norm(pixel_positions - obstacle.pos, axis=2)
+            obstacle_proximity_penalties -= 1.0 / (np.abs(obstacle_distances - obstacle.radius) + 1.0)
+        
+        position_rewards = target_proximity_rewards + obstacle_proximity_penalties
+        # Normalize rewards and create color map
+        max_negative_reward = self.num_obstacles * 1.0
+        positive_mask = position_rewards > 0
+        negative_mask = ~positive_mask
+        
+        color_map[:, :, :] = 255  # Set the background to white
+        color_map[positive_mask, 0] -= (255 * np.minimum(position_rewards[positive_mask], 1.0)).astype(np.uint8)
+        color_map[positive_mask, 2] -= (255 * np.minimum(position_rewards[positive_mask], 1.0)).astype(np.uint8)
+        color_map[negative_mask, 1] -= (255 * np.minimum(np.abs(position_rewards[negative_mask]), max_negative_reward) / max_negative_reward).astype(np.uint8)
+        color_map[negative_mask, 2] -= (255 * np.minimum(np.abs(position_rewards[negative_mask]), max_negative_reward) / max_negative_reward).astype(np.uint8)
+
+        return color_map

@@ -25,7 +25,7 @@ class BaseAgent:
         self.agent_config = agent_config
         self.env_config = env_config
         self.base_env = self.make_base_env(env_config)
-        self.callback = ModularAgentCallback()
+        self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
         self.parse_agents(self.base_env)
         self.reset()
         self.training = False
@@ -94,7 +94,7 @@ class BaseAgent:
                     run += 1
                     # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
                     tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
-                    self.callback.set_model_name(agent.id)
+                    self.callback.set_submodel_name(agent.id)
                     agent.learn(timesteps_per_run)
                     timesteps += timesteps_per_run
                     progress_bar.update(1)
@@ -134,7 +134,7 @@ class BaseAgent:
 
     def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
         if agent in self.agents.keys():
-            self.callback.set_model_name(agent)
+            self.callback.set_submodel_name(agent)
             self.agents[agent].learn(timesteps)
             if plot:
                 self.callback.plot_training_progress()
@@ -261,7 +261,8 @@ class BaseAgent:
         # Adjust the position of the nodes to have children at the same height
         root = G.nodes[self.last_agent.id]
         pos[root["id"]] = np.array([1.0, 0])
-        set_parent_positions(self.last_agent.id, pos, G)
+        if graph_depth > 1:
+            set_parent_positions(self.last_agent.id, pos, G)
 
         nx.draw_networkx(G, pos, with_labels=False, node_color=[node_color_map[data.get('agent_type', '')] for _, data in G.nodes(data=True)], node_size=5000, alpha=0.8)
         nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=12, font_weight="bold")

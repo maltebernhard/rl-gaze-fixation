@@ -1,4 +1,5 @@
 random_seed: 140
+name: monolithic ppo with gaze fixation
 agents:
   - id: 1
     type: PLCY
