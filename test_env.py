@@ -8,7 +8,7 @@ import environment
 
 env_config = {
     "timestep":            0.05,
-    "episode_length":      60.0,
+    "episode_duration":    60.0,
     "world_size":          50.0,
     "robot_sensor_angle":  np.pi * 2.0,
     "robot_max_vel":       8.0,
@@ -32,4 +32,4 @@ with open("./config/agent/(targ_obst)_mixt_gaze.yaml") as file:
 
 base_agent = BaseAgent(model_config, env_config)
 
-base_agent.run(1000, False)
+base_agent.run(prints=True, steps=1000, env_seed=2)

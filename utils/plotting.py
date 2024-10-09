@@ -52,8 +52,6 @@ def plot_training_progress_multiple(callbacks: List[ModularAgentCallback], savep
         for callback in model_callbacks:
             all_rewards.append(callback.episode_rewards['base'])
         
-        print(model_name)
-
         # Calculate mean and standard deviation
         mean_rewards = [sum(x) / len(x) for x in zip(*all_rewards)]
         std_rewards = [sum((x - mean) ** 2 for x in xs) ** 0.5 / len(xs) for xs, mean in zip(zip(*all_rewards), mean_rewards)]
@@ -69,7 +67,9 @@ def plot_training_progress_multiple(callbacks: List[ModularAgentCallback], savep
     plt.ylabel('Reward')
     plt.title(f'Training Progress')
     plt.legend()
+    plt.grid()
     if savepath is None:
         plt.show()
     else:
         plt.savefig(savepath)
+    plt.close()

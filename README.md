@@ -23,38 +23,30 @@
 
 ## ToDo
 
+- new environment
+    - how about classics?
+        - drone landing --> look into lunar lander
+
 - manifold representation
     - define space
-    - visualize
+    - visualize?
 
 - mixture of experts
-    - decouple agent and environment concept, so that an agent actually represents a decision maker (controller or policy)
-    - implement mixture model
-        - each agent outputs mean and stddev for each action space dimension,
-        - weighting function learns matrix for each dimension / agent
+    - work with mean and stddev mixture model?
 
-- multi contingencies
-    - make mixture of obstacle avoidance and gf possible
-    - contingency:
-        - the closer, the slower the radial velocity
-            - does not conflict with gaze fixation, as different action space dimensions are adressed
-        - what if radial velocity is negative?
-        - what if distance is large --> we don't need to approach obstacle
-        - IF radial velocity is positive, reduce it by size of obstacle in fov?
-        
+- contingencies
+    - include mixture mode of simply deciding between actions --> only lacks time variant actions to fit into options framework
+    - max radial velocity contingency for obstacles
+        - could be relevant to include some understanding of which contingency is active into model
 
-- think about which observations are relavant to solving the problem
-    - should no history be included whatsoever?
+- observations
+    - reduce obstacle distance measurement by robot size
+    - rethink what's necessary
 
 - Baseline:
-    - improve baseline distance estimation by finding correct alphas
-    - alternative baseline: reduce all velocities to 0 when close to target
+    - reimplement?
 
 - Results:
-    - document difficulties in generating useful behavior -> too high learning rate
-    - include baseline into wandb -> how to log data?
+    - include current model into wandb -> how to log arbitrary data?
 - Time-variant objective:
-    - make distance to target time-variant and include in observations / exclude from config
     - make target move through space
-- Obstacles
-    - rethink representation

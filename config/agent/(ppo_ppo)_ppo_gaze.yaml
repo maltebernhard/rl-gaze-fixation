@@ -30,7 +30,6 @@
 #     (only if model is learnable)
 #   - model specific params
 
-random_seed: 2
 name: modular ppo with gaze fixation
 agents:
   - id: Go-Towards-Target-Agent

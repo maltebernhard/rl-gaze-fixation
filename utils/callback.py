@@ -42,7 +42,6 @@ class ModularAgentCallback(BaseCallback):
             plt.xlabel('Episodes')
             plt.ylabel('Reward')
             plt.title(f'Training Progress')
-            plt.legend()
             plt.grid()
             if show:
                 plt.show()

@@ -31,10 +31,21 @@
 #   - model specific params
 
 name: handcrafted policy mixture with gaze fixation
+reward_indices: [0,2,3]
 agents:
-  - id: Avoid-Nearest-Obstacle-Agent
+  - id: Avoid-1-Obstacle-Agent
     type: PLCY
-    model_type: ANO
+    model_type: A1O
+    action_space_dimensionality: 2
+
+  - id: Avoid-2-Obstacle-Agent
+    type: PLCY
+    model_type: A2O
+    action_space_dimensionality: 2
+
+  - id: Avoid-3-Obstacle-Agent
+    type: PLCY
+    model_type: A3O
     action_space_dimensionality: 2
 
   - id: Go-Towards-Target-Agent
@@ -43,10 +54,32 @@ agents:
     action_space_dimensionality: 2
 
   - id: Mixture-Agent
-    type: MX2R
-    model_type: TOM
-    mixture_mode: 2
-    experts: [Avoid-Nearest-Obstacle-Agent, Go-Towards-Target-Agent]
+    type: MXTR
+    model_type: PPO
+    observation_keys:
+      - target_distance
+      - target_offset_angle
+      - del_target_offset_angle
+      - vel_rot
+      - vel_frontal
+      - vel_lateral
+      - robot_target_distance
+      #- obstacle1_offset_angle
+      - del_obstacle1_distance
+      - obstacle1_distance
+      #- obstacle2_offset_angle
+      - del_obstacle2_distance
+      - obstacle2_distance
+      #- obstacle3_offset_angle
+      - del_obstacle3_distance
+      - obstacle3_distance
+    mixture_mode: 1
+    reward_indices: [0,2,3]
+    experts: [Avoid-1-Obstacle-Agent, Avoid-2-Obstacle-Agent, Avoid-3-Obstacle-Agent, Go-Towards-Target-Agent]
+    policy_type: MlpPolicy
+    learning_rate: 0.0001
+    verbose: 1
+    seed: 130
 
   - id: Gaze-Fixation-Agent
     type: CONT

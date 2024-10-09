@@ -7,10 +7,10 @@ from stable_baselines3 import PPO
 # =========================================================================================================
 
 class MixtureOfExperts(StructureAgent):
-    def __init__(self, base_env, agent_config, callback, experts):
+    def __init__(self, base_agent, agent_config, callback, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
-        super().__init__(base_env, agent_config, callback)
+        super().__init__(base_agent, agent_config, callback)
 
     def create_action_space(self):
         if self.mixture_mode == 1:

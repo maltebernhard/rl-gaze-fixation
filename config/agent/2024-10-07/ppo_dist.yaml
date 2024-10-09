@@ -27,28 +27,25 @@
 #   - type: <str>
 #   - model_type: <str>
 #   - observation_keys: <list>
-#     (only if model is learnable)
 #   - model specific params
 
-name: handcrafted policy mixture with gaze fixation
+name: ppo with distance
+reward_indices: [0]
 agents:
-  - id: Avoid-Nearest-Obstacle-Agent
+  - id: 1
     type: PLCY
-    model_type: ANO
-    action_space_dimensionality: 2
-
-  - id: Go-Towards-Target-Agent
-    type: PLCY
-    model_type: GTT
-    action_space_dimensionality: 2
-
-  - id: Mixture-Agent
-    type: MX2R
-    model_type: TOM
-    mixture_mode: 2
-    experts: [Avoid-Nearest-Obstacle-Agent, Go-Towards-Target-Agent]
-
-  - id: Gaze-Fixation-Agent
-    type: CONT
-    model_type: GFM
-    contingent_agent: Mixture-Agent
+    model_type: PPO
+    observation_keys:
+      - target_distance
+      - target_offset_angle
+      - del_target_offset_angle
+      - robot_target_distance
+      - vel_rot
+      - vel_frontal
+      - vel_lateral
+    reward_indices: [0]
+    action_space_dimensionality: 3
+    policy_type: MlpPolicy
+    learning_rate: 0.001
+    verbose: 1
+    seed: 14

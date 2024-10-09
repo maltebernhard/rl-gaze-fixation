@@ -30,7 +30,6 @@
 #     (only if model is learnable)
 #   - model specific params
 
-random_seed: 2
 name: ppo policy mixture with gaze fixation
 agents:
   - id: Avoid-Nearest-Obstacle-Agent

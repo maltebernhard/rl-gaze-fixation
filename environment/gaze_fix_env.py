@@ -5,6 +5,7 @@ import numpy as np
 import pygame
 import vidmaker
 import math
+from environment.base_env import BaseEnv, Observation
 
 # =====================================================================================================
 
@@ -55,24 +56,14 @@ class Target:
         self.vel = np.array([0.0, 0.0], dtype=np.float64)
         self.distance = distance
 
-class Observation:
-    def __init__(self, low, high, callable) -> None:
-        self.low = low
-        self.high = high
-        self.calculate = callable
-
-    def calculate_value(self):
-        self.value = self.calculate()
-        return self.value
-
 # =====================================================================================================
 
-class GazeFixEnv(gym.Env):
+class GazeFixEnv(BaseEnv):
     def __init__(self, config: dict):
         super().__init__()
         self.config = config
 
-        self.episode_length = config["episode_length"]
+        self.episode_duration = config["episode_duration"]
         self.timestep: float = config["timestep"]
         self.num_steps: int = 0
         self.time = 0.0
@@ -98,7 +89,7 @@ class GazeFixEnv(gym.Env):
         self.generate_target()
         self.generate_obstacles()
 
-        self.history = []
+        self.history: List[Dict[str,float]] = []
 
         self.generate_observation_space()
         self.generate_action_space()
@@ -112,8 +103,6 @@ class GazeFixEnv(gym.Env):
         self.record_video = False
         self.video_path = ""
         self.video = None
-
-        self.reset(self.config["seed"])
     
     def step(self, action):
         self.num_steps += 1
@@ -127,18 +116,17 @@ class GazeFixEnv(gym.Env):
         self.last_observation, rewards, done, trun, info = self.get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
-        self.history.insert(0, self.last_observation)
+        self.history.insert(0, self.last_observation.copy())
         if len(self.history) > 2:
             self.history.pop()
 
         rew = np.sum(rewards)
         self.total_reward += rew
-        return self.last_observation, rewards, done, trun, info
+        return np.array(list(self.last_observation.values())), rewards, done, trun, info
     
     def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
         if seed is not None:
             super().reset(seed=seed)
-            np.random.seed(seed)
         if self.video is not None:
             os.makedirs(self.video_path, exist_ok=True)
             self.video.export(verbose=True)
@@ -157,19 +145,16 @@ class GazeFixEnv(gym.Env):
         self.generate_obstacles()
 
         self.last_observation, info = self.get_observation(), self.get_info()
-        self.history.append(self.last_observation)
+        self.history.append(self.last_observation.copy())
 
-        return self.last_observation, info
+        return np.array(list(self.last_observation.values())), info
     
     def close(self):
         pygame.quit()
         self.screen = None
         
     def get_observation(self):
-        observation = []
-        for obs in self.observations.values():
-            observation.append(obs.calculate_value())
-        return np.array(observation)
+        return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
     def get_rewards(self):
         # reward for being close to target distance
@@ -183,11 +168,11 @@ class GazeFixEnv(gym.Env):
             for obstacle in self.obstacles:
                 dist = np.linalg.norm(self.robot.pos-obstacle.pos)
                 if abs(dist-obstacle.radius) < self.penalty_margin:
-                    obstacle_proximity_penalty -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / 30
+                    obstacle_proximity_penalty -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / self.num_obstacles / 10
         # penalize energy waste
         energy_waste_penalty = 0.0
-        energy_waste_penalty -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 10
-        energy_waste_penalty -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 10
+        energy_waste_penalty -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 20
+        energy_waste_penalty -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 20
 
         # penalize collision
         collision_penalty = 1.0 if self.collision else 0.0
@@ -200,13 +185,10 @@ class GazeFixEnv(gym.Env):
         ])
 
     def get_terminated(self):
-        return self.time > self.episode_length or self.collision
+        return self.time > self.episode_duration or self.collision
     
     def get_info(self):
         return {}
-    
-    def reset_full_observation(self, seed=None, **kwargs):
-        return self.reset(seed=seed, **kwargs)
     
     # ------------------------------------------------------------------------------------------
 
@@ -223,7 +205,8 @@ class GazeFixEnv(gym.Env):
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o].pos))
             self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda o=o: self.calculate_circle_coverage(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius)
+            self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.calculate_obstacle_distance(o))
+            self.observations[f"del_obstacle{o+1}_distance"] = Observation(-1.0, 1.0, lambda o=o: self.compute_del_obstacle_distance(o))
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_observation = None
@@ -344,7 +327,15 @@ class GazeFixEnv(gym.Env):
     
     def compute_del_offset_angle(self, angle):
         if len(self.history) > 0:
-            return (self.history[0][1]-angle)/self.timestep/self.robot.max_vel_rot
+            return (self.history[0]["target_offset_angle"]-angle)/self.timestep/self.robot.max_vel_rot
+        return 0.0
+    
+    def calculate_obstacle_distance(self, o: int):
+        return np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius
+
+    def compute_del_obstacle_distance(self, o: int):
+        if len(self.history) > 0:
+            return (self.history[0][f"obstacle{o+1}_distance"] - self.calculate_obstacle_distance(o))/self.timestep/self.robot.max_vel
         return 0.0
 
     def robot_target_distance(self):

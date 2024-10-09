@@ -6,34 +6,34 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import PPO
 import wandb
-from agent.OLD_model import Model
 
-def training_run(project_name, run_name, model_config, env_config, record_video=False):
-    run = create_run(project_name=project_name, model_config=model_config, name=run_name, group=run_name)
-    model = create_model(model_config=model_config, env_config=env_config, run_id=run.id)
-    train_model(model, model_config["total_timesteps"])
-    folder = f"./training_data/{datetime.today().strftime('%Y-%m-%d_%H-%M')}_{run_name}/"
-    model.save(folder = folder)
-    if record_video:
-        model.run_model(1, 0, True, folder)
-    save_artifact(run, run_name, folder)
+from agent.base_agent import BaseAgent
+
+def training_run(project_name, run_name, agent_config, env_config, training_timesteps, record_video=False):
+    run = create_run(project_name=project_name, model_config=agent_config, name=run_name, group=run_name)
+    agent = create_agent(agent_config=agent_config, env_config=env_config, run_id=run.id)
+    agent.set_wandb_callback()
+    agent.learn(total_timesteps=training_timesteps, timesteps_per_run=4096, save=True, plot=False)
+    #save_artifact(run, run_name, folder)
     run.finish()
 
-def create_model(model_config, env_config, run_id) -> Model:
+def create_agent(agent_config, env_config, run_id) -> BaseAgent:
     def make_env():
         env = gym.make(
-            id='GazeFixAgent',
+            id='GazeFixEnv',
             config=env_config
         )
-        env.reset(seed=env_config["seed"])
         return Monitor(env)  # record stats such as returns
 
     env = DummyVecEnv([make_env])
-    #model = PPO(model_config["policy_type"], env, learning_rate=model_config["learning_rate"], verbose=1, seed=model_config["seed"], tensorboard_log=f"runs/{run_id}")
-    model = PPO(model_config["policy_type"], env, learning_rate=model_config["learning_rate"], verbose=1, seed=model_config["seed"])
-    model = Model(env.envs[0].env.unwrapped, model_config, model)
-    model.reset()
-    return model
+    # model = PPO(model_config["policy_type"], env, learning_rate=model_config["learning_rate"], verbose=1, seed=model_config["seed"], tensorboard_log=f"runs/{run_id}")
+    # model = PPO(agent_config["policy_type"], env, learning_rate=agent_config["learning_rate"], verbose=1, seed=agent_config["seed"])
+    # model = Model(env.envs[0].env.unwrapped, agent_config, model)
+    # model.reset()
+
+    agent = BaseAgent(agent_config, env_config)
+
+    return agent
 
 def create_run(project_name, model_config, name = datetime.today().strftime('%Y-%m-%d_%H-%M'), tags=[], group = ""):
     run = wandb.init(
@@ -48,14 +48,9 @@ def create_run(project_name, model_config, name = datetime.today().strftime('%Y-
     )
     return run
 
-def train_model(model: Model, total_timesteps):
-    model.learn(
+def train_model(agent: BaseAgent, total_timesteps):
+    agent.learn(
         total_timesteps=total_timesteps,
-        callback=WandbCallback(
-            gradient_save_freq=100,
-            model_save_path=None,
-            verbose=2,
-        ),
     )
 
 def save_artifact(run, run_name, folder):

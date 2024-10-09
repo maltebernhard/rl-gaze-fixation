@@ -29,7 +29,6 @@
 #   - observation_keys: <list>
 #   - model specific params
 
-random_seed: 140
 name: monolithic ppo
 agents:
   - id: 1

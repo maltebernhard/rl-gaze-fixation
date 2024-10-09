@@ -12,13 +12,13 @@ from environment.structure_env import StructureEnv
 # ===========================================================================================
 
 class StructureAgent:
-    def __init__(self, base_env, agent_config: dict, callback: ModularAgentCallback) -> None:
+    def __init__(self, base_agent, agent_config: dict, callback: ModularAgentCallback) -> None:
         self.id = agent_config["id"]
         self.config = agent_config
         self.observation_keys = None
         self.env: StructureEnv = gym.make(
             id='StructureEnv',
-            base_env = base_env,
+            base_agent = base_agent,
             observation_keys = self.get_observation_keys(),
             action_space = self.create_action_space(),
             reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0,1,2])
@@ -46,8 +46,6 @@ class StructureAgent:
             total_reward += reward
             step += 1
             self.env.render()
-            
-        #obs, info = self.env.reset_full_observation()
         self.env.close()
         obs, info = self.env.reset()
         print(f"Episode finished with total reward {total_reward}")

@@ -3,23 +3,35 @@ import yaml
 from agent.base_agent import BaseAgent
 from utils.plotting import plot_training_progress_multiple
 
-with open("./config/env/three_obstacles.yaml") as file:
+total_timesteps = 500000
+
+with open("./config/env/zero_obstacles.yaml") as file:
     env_config = yaml.load(file, Loader=yaml.FullLoader)
-with open("./config/agent/(ppo_ppo)_ppo_gaze.yaml") as file:
-    model_config_monolithic = yaml.load(file, Loader=yaml.FullLoader)
-with open("./config/agent/ppo_gazefix.yaml") as file:
-    model_config_modular = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent/2024-10-07/ppo.yaml") as file:
+    model_config_free = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent/2024-10-07/ppo_gazefix.yaml") as file:
+    model_config_contingent = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent/2024-10-07/ppo_dist.yaml") as file:
+    model_config_free_dist = yaml.load(file, Loader=yaml.FullLoader)
+with open("./config/agent/2024-10-07/ppo_gazefix_dist.yaml") as file:
+    model_config_contingent_dist = yaml.load(file, Loader=yaml.FullLoader)
 
-base_agents_modular: List[BaseAgent] = []
-base_agents_monolithic: List[BaseAgent] = []
+base_agents_contingent: List[BaseAgent] = []
+base_agents_free: List[BaseAgent] = []
 
-for i in range(5):
-    model_config_modular["random_seed"] = i
-    model_config_monolithic["random_seed"] = i
-    base_agents_modular.append(BaseAgent(model_config_modular, env_config))
-    base_agents_monolithic.append(BaseAgent(model_config_monolithic, env_config))
+base_agents_contingent_dist: List[BaseAgent] = []
+base_agents_free_dist: List[BaseAgent] = []
 
-    base_agents_modular[-1].learn(5000000, 2048, True)
-    base_agents_monolithic[-1].learn(5000000, 2048, True)
+for i in range(4,10):
+    # TODO: Change seed in model_config
+    base_agents_contingent.append(BaseAgent(model_config_contingent, env_config))
+    base_agents_free.append(BaseAgent(model_config_free, env_config))
+    base_agents_contingent_dist.append(BaseAgent(model_config_contingent_dist, env_config))
+    base_agents_free_dist.append(BaseAgent(model_config_free_dist, env_config))
 
-plot_training_progress_multiple([agent.callback for agent in (base_agents_modular+base_agents_monolithic)], savepath="./compare_models")
+    base_agents_contingent[-1].learn(total_timesteps=total_timesteps, timesteps_per_run=2048, save=True, plot=False)
+    base_agents_free[-1].learn(total_timesteps=total_timesteps, timesteps_per_run=2048, save=True, plot=False)
+    base_agents_contingent_dist[-1].learn(total_timesteps=total_timesteps, timesteps_per_run=2048, save=True, plot=False)
+    base_agents_free_dist[-1].learn(total_timesteps=total_timesteps, timesteps_per_run=2048, save=True, plot=False)
+
+plot_training_progress_multiple([agent.callback for agent in (base_agents_contingent+base_agents_free+base_agents_contingent_dist+base_agents_free_dist)], savepath="./compare_models")

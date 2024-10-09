@@ -9,7 +9,7 @@ class TargetFollowingObstacleEvasionMixtureModel(Model):
 
     def __init__(self, env: StructureEnv, mixture_mode: int = 1, action_space_dimensionality: int = 3):
         super().__init__(env)
-        self.num_obstacles = self.env.unwrapped.base_env.unwrapped.env.unwrapped.config["num_obstacles"]
+        self.num_obstacles = self.env.unwrapped.base_agent.base_env.unwrapped.config["num_obstacles"]
         self.mixture_mode = mixture_mode
         self.action_space_dimensionality = action_space_dimensionality
 

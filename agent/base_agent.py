@@ -5,8 +5,8 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import Dict, List
-from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.base_class import BaseAlgorithm
+from wandb.integration.sb3 import WandbCallback
 import yaml
 
 from agent.agents.agent import StructureAgent
@@ -24,25 +24,27 @@ class BaseAgent:
     def __init__(self, agent_config, env_config) -> None:
         self.agent_config = agent_config
         self.env_config = env_config
-        self.base_env = self.make_base_env(env_config)
+        self.make_base_env(env_config)
+
         self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
-        self.parse_agents(self.base_env)
-        self.reset()
+        self.name = self.agent_config["name"].replace(" ", "-")
+        if "reward_indices" in self.agent_config.keys():
+            self.reward_indices = self.agent_config["reward_indices"]
+        else:
+            self.reward_indices = [0, 1, 2, 3]
+        self.parse_agents()
         self.training = False
         self.folder = None
 
     def predict(self, observation: np.ndarray, rewards=None) -> np.ndarray:
         if rewards is not None:
-            self.callback.current_base_episode_reward += np.sum(rewards)
+            self.callback.current_base_episode_reward += np.sum(rewards[self.reward_indices])
         return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation), []
-    
-    def reset(self) -> None:
-        set_random_seed(self.agent_config["random_seed"])
 
     def save(self, folder = None):
         if folder is None:
             if self.folder is None:
-                folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d_%H-%M') + "/"
+                folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d/%H-%M') + f"_{self.name}/"
                 self.folder = folder
             else:
                 folder = self.folder
@@ -86,25 +88,29 @@ class BaseAgent:
         trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
         total_runs = int(np.ceil(total_timesteps / timesteps_per_run / len(trainable_agents)))
         run: int = 0
-        progress_bar = tqdm(total=total_runs, desc="Training Progress", position=0, leave=True, dynamic_ncols=True)
+        if len(trainable_agents) > 1:
+            progress_bar = tqdm(total=total_runs, desc="Training Progress", position=0, leave=True, dynamic_ncols=True)
         self.training = True
         try:
-            while timesteps < total_timesteps:
-                for agent in trainable_agents:
-                    run += 1
-                    # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
-                    tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
-                    self.callback.set_submodel_name(agent.id)
-                    agent.learn(timesteps_per_run)
-                    timesteps += timesteps_per_run
-                    progress_bar.update(1)
+            if len(trainable_agents) == 1:
+                self.learn_agent(trainable_agents[0].id, total_timesteps, plot)
+            else:
+                while timesteps < total_timesteps:
+                    for agent in trainable_agents:
+                        run += 1
+                        # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
+                        tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
+                        self.callback.set_submodel_name(agent.id)
+                        agent.learn(timesteps_per_run)
+                        timesteps += timesteps_per_run
+                        progress_bar.update(1)
         except KeyboardInterrupt:
             print("Training interrupted by user")
         except Exception as e:
-            progress_bar.close()
             raise e
         self.training = False
-        progress_bar.close()
+        if len(trainable_agents) > 1:
+            progress_bar.close()
         if save:
             self.save()
         if plot:
@@ -114,7 +120,7 @@ class BaseAgent:
     def run(self, prints = False, steps = 0, env_seed = None) -> None:
         total_reward = 0
         step = 0
-        obs, info = self.base_env.reset(seed=env_seed)
+        obs, info = self.reset(seed=env_seed)
         done = False
         while not done and (steps==0 or step < steps):
             action, _states = self.predict(obs)
@@ -122,14 +128,14 @@ class BaseAgent:
                 print(f'-------------------- Step {step} ----------------------')
                 print(f'Observation: {obs}')
                 print(f'Action:      {action}')
-            obs, reward, done, truncated, info = self.base_env.step(action)
+            obs, reward, done, truncated, info = self.step(action)
             if prints:
                 print(f'Reward:      {reward}')
             total_reward += reward
             step += 1
-            self.base_env.render()
-        self.base_env.close()
-        obs, info = self.base_env.reset()
+            self.render()
+        self.close()
+        obs, info = self.reset()
         print(f"Episode finished with total reward {total_reward}")
 
     def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
@@ -147,20 +153,20 @@ class BaseAgent:
         else:
             raise ValueError(f"Invalid agent key: {agent}")
 
-    def parse_agents(self, base_env):
+    def parse_agents(self):
         agents_config: Dict[int, dict] = self.agent_config["agents"]
         self.agents: dict[int, StructureAgent] = {}
         for agent_config in agents_config:
             if agent_config["type"] == "PLCY":
                 self.agents[agent_config["id"]] = Policy(
-                    base_env = base_env,
+                    base_agent = self,
                     agent_config = agent_config,
                     callback = self.callback
                 )
                 print(f"Policy agent {agent_config['id']} created")
             elif agent_config["type"] == "CONT":
                 self.agents[agent_config["id"]] = Contingency(
-                    base_env = base_env,
+                    base_agent = self,
                     agent_config = agent_config,
                     callback = self.callback,
                     contingent_agent = self.agents[agent_config["contingent_agent"]]
@@ -168,7 +174,7 @@ class BaseAgent:
                 print(f"Contingency agent {agent_config['id']} created")
             elif agent_config["type"] == "MXTR":
                 self.agents[agent_config["id"]] = MixtureOfExperts(
-                    base_env = base_env,
+                    base_agent = self,
                     agent_config = agent_config,
                     callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
@@ -176,7 +182,7 @@ class BaseAgent:
                 print(f"Mixture-of-Experts agent {agent_config['id']} created")
             elif agent_config["type"] == "MX2R":
                 self.agents[agent_config["id"]] = MixtureOfTwoExperts(
-                    base_env = base_env,
+                    base_agent = self,
                     agent_config = agent_config,
                     callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
@@ -186,19 +192,18 @@ class BaseAgent:
                 raise ValueError(f"Unknown model type: {agent_config['type']}")  
         self.set_last_agent()
         for agent in self.agents.values():
-            agent.env.reset(key=self.env_config["seed"])
+            agent.env.set_base_agent(self)
 
     def make_base_env(self, env_config: dict):
-        env = gym.make(
+        self.base_env = gym.make(
             id='GazeFixEnv',
             config = env_config
         )
-        base_env = gym.make(
-            id='BaseEnv',
-            env = env,
-        )
-        base_env.set_base_agent(self)
-        return base_env
+        self.observations = self.base_env.get_wrapper_attr("observations")
+        self.action_space = self.base_env.action_space
+        self.observation_space = self.base_env.observation_space
+        self.last_observation = None
+        self.last_rewards = None
 
     def set_last_agent(self) -> None:
         for agent_id, agent in self.agents.items():
@@ -213,6 +218,34 @@ class BaseAgent:
             if is_last_agent:
                 self.last_agent = agent
                 return
+            
+    def set_wandb_callback(self):
+        for agent in self.agents.values():
+            agent.callback = WandbCallback(
+                gradient_save_freq=100,
+                model_save_path=None,
+                verbose=2,
+            )
+
+    # =========================== env control ===================================
+
+    def act(self):
+        action = self.predict(self.last_observation, self.last_rewards)[0]
+        self.last_observation, self.last_rewards, done, truncated, info = self.step(action)
+        return self.last_observation, self.last_rewards, done, truncated, info
+
+    def step(self, action: np.ndarray):
+        return self.base_env.step(action)
+
+    def reset(self, seed=None, **kwargs):
+        self.last_observation, info = self.base_env.reset(seed=seed, **kwargs)
+        return self.last_observation, info
+
+    def render(self):
+        return self.base_env.render()
+
+    def close(self):
+        return self.base_env.close()
 
     # ========================== visualization ==================================
 

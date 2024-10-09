@@ -1,34 +1,50 @@
+from abc import abstractmethod
+from typing import Dict
 import gymnasium as gym
 import numpy as np
 
+# =================================================================================
+
+class Observation:
+    def __init__(self, low, high, callable) -> None:
+        self.low = low
+        self.high = high
+        self.calculate = callable
+
+    def calculate_value(self):
+        self.value = self.calculate()
+        return self.value
+
+# =================================================================================
+
 class BaseEnv(gym.Env):
-    def __init__(self, env: gym.Env):
-        self.env = env
-        self.base_agent = None
-        self.observations = self.env.get_wrapper_attr("observations")
-        self.config = self.env.get_wrapper_attr("config")
-
-        self.action_space = self.env.action_space
-        self.observation_space = self.env.observation_space
-
-        self.last_observation = None
-        self.last_rewards = None
+    def __init__(self):
+        super().__init__()
+        self.observations: Dict[str, Observation] = {}
     
-    # TODO: find better way to ignore this partial action
+    @abstractmethod
     def step(self, partial_action):
-        action = self.base_agent.predict(self.last_observation, self.last_rewards)[0]
-        self.last_observation, self.last_rewards, done, truncated, info = self.env.step(action)
-        return self.last_observation, self.last_rewards, done, truncated, info
+        raise NotImplementedError
 
+    @abstractmethod
     def reset(self, seed=None, **kwargs):
-        self.last_observation, info = self.env.reset(seed=seed, **kwargs)
-        return self.last_observation, info
+        super().reset(seed=seed)
+        np.random.seed(seed)
 
+    @abstractmethod
     def render(self):
-        return self.env.render()
+        raise NotImplementedError
 
+    @abstractmethod
     def close(self):
-        return self.env.close()
+        raise NotImplementedError
     
-    def set_base_agent(self, agent):
-        self.base_agent = agent
+    # --------------------------------------------------
+
+    @abstractmethod
+    def generate_observation_space(self):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def generate_action_space(self):
+        raise NotImplementedError
