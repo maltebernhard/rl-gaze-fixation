@@ -57,10 +57,3 @@ class KeepTargetDistanceModel(Model):
         if self.action_mode == 1:
             self.action = (self.action - np.ones(self.action.shape)) * self.max_acc
         return self.action, []
-        
-    def save(self, file_path: str):
-        pass
-        
-    @classmethod
-    def load(cls, file_path: str):
-        pass

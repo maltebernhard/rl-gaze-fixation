@@ -11,6 +11,8 @@ class StructureEnv(gym.Env):
         self.base_agent = base_agent
         self.create_observation_space(observation_keys)
         self.action_space = action_space
+        self.action_mode = self.base_agent.env_config["action_mode"]
+        self.timestep = self.base_agent.env_config["timestep"]
         self.reward_indices = reward_indices
         self.last_observation = None
         self.last_action: np.ndarray = None

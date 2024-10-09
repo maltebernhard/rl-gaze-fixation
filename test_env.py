@@ -2,12 +2,11 @@ import time
 import numpy as np
 import yaml
 from agent.base_agent import BaseAgent
-import environment
 
 # ============================= config =================================
 
 env_config = {
-    "timestep":            0.05,
+    "timestep":            0.01,
     "episode_duration":    60.0,
     "world_size":          50.0,
     "robot_sensor_angle":  np.pi * 2.0,
@@ -15,16 +14,16 @@ env_config = {
     "robot_max_vel_rot":   3.0,
     "robot_max_acc":       8.0,
     "robot_max_acc_rot":   10.0,
-    "action_mode":         1,
+    "action_mode":         3,
     "target_distance":     10.0,
-    "reward_margin":       10.0,
+    "reward_margin":       1000.0,
     "penalty_margin":      5.0,
     "wall_collision":      False,
     "num_obstacles":       3,
     "use_obstacles":       True,
     "use_contingencies":   True,
-    "seed":                1
-    #"seed":                int(time.time())
+    #"seed":                2
+    "seed":                int(time.time())
 }
 
 with open("./config/agent/(targ_obst)_mixt_gaze.yaml") as file:
@@ -32,4 +31,4 @@ with open("./config/agent/(targ_obst)_mixt_gaze.yaml") as file:
 
 base_agent = BaseAgent(model_config, env_config)
 
-base_agent.run(prints=True, steps=1000, env_seed=2)
+base_agent.run(prints=False, steps=100000, env_seed=env_config["seed"])

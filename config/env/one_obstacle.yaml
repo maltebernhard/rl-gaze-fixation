@@ -10,17 +10,17 @@ wall_collision:     false
 
 
 # number of obstacles in observation space
-num_obstacles:      0
+num_obstacles:      1
 # use or not
 use_obstacles:      true
 
 
 # maximum target_distance as objective (minimum is 0.0, uniform sampling)
-target_distance:    10.0
+target_distance:    0.0
 # size of reward margin around target distance
 reward_margin:      1000.0
 # size of penalty margin around obstacles
-penalty_margin:     1000.0
+penalty_margin:     10.0
 
 
 # robot config
@@ -34,7 +34,8 @@ robot_sensor_angle: 3.0
 
 # 1 - continuous acceleration
 # 2 - fixed acceleration
-action_mode:        1
+# 3 - continuous velocity
+action_mode:        3
 
 
 

@@ -7,26 +7,34 @@ from environment.structure_env import StructureEnv
 class GazeFixationModel(Model):
     observation_keys = ["target_offset_angle", "del_target_offset_angle"]
 
-    def __init__(self, env: StructureEnv, timestep, max_vel_rot, max_acc_rot):
+    def __init__(self, env: StructureEnv, max_vel_rot, max_acc_rot):
         super().__init__(env)
         self.max_vel = max_vel_rot
         self.max_acc = max_acc_rot
-        self.angle = (self.max_vel ** 2) / (2 * self.max_acc)
-        self.action_mode = 1
-        self.epsilon = timestep * 0.5
+        self.breaking_angle = (self.max_vel ** 2) / (2 * self.max_acc)
+        self.action_mode = self.env.unwrapped.action_mode
+        self.timestep = self.env.unwrapped.timestep
+        self.epsilon = self.timestep
 
     def predict(self, obs, deterministic = True):
         vel_rot_desired = self.compute_target_vel(obs[0])
         if self.action_mode == 1:
             return np.array([self.pd_control(vel_rot_desired-obs[1], obs[1])]), None
         elif self.action_mode == 2:
-            return np.array([self.flip_control(vel_rot_desired, obs[1], self.epsilon)]), None
+            return np.array([self.flip_control(vel_rot_desired, obs[1])]), None
+        elif self.action_mode == 3:
+            return np.array([self.vel_control(obs[0])]), None
         
-    def flip_control(self, target, current, eps):
+    def vel_control(self, target_offset_angle):
+        if abs(target_offset_angle) > self.epsilon:
+            return min(target_offset_angle/self.timestep, 1.0)
+        return 0.0
+
+    def flip_control(self, target, current):
         action = 1
-        if target-current > eps:
+        if target-current > self.epsilon:
             action = 2
-        elif target-current < -eps:
+        elif target-current < -self.epsilon:
             action = 0
         if self.action_mode == 1:
             return (action-1)
@@ -42,9 +50,9 @@ class GazeFixationModel(Model):
         K_p = 10.0
         return K_p * x
     
-    def compute_target_vel(self, angle):
-        if abs(angle) > self.angle:
-            vel_rot_desired = angle/abs(angle)
+    def compute_target_vel(self, target_angle_offset):
+        if abs(target_angle_offset) > self.breaking_angle:
+            vel_rot_desired = target_angle_offset/abs(target_angle_offset)
         else:
-            vel_rot_desired = angle/self.angle
+            vel_rot_desired = target_angle_offset/self.breaking_angle
         return vel_rot_desired

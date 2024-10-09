@@ -29,26 +29,32 @@ class StructureAgent:
         self.model_name = agent_config["model_type"]
         self.set_callback(callback)
 
-    def run(self, prints = False, steps = 0, env_seed = None):
+    def run(self, prints = False, steps = 0, env_seed = None, render=True):
+        log = {"actions": [], "observations": [], "rewards": []}
         total_reward = 0
         step = 0
         obs, info = self.env.reset(seed=env_seed)
         done = False
         while not done and (steps==0 or step < steps):
             action, _states = self.predict(obs)
+            log["actions"].append(action)
+            log["observations"].append(obs)
             if prints:
                 print(f'-------------------- Step {step} ----------------------')
                 print(f'Observation: {obs}')
                 print(f'Action:      {action}')
             obs, reward, done, truncated, info = self.env.step(action)
+            log["rewards"].append(reward)
             if prints:
                 print(f'Reward:      {reward}')
             total_reward += reward
             step += 1
-            self.env.render()
+            if render:
+                self.env.render()
         self.env.close()
         obs, info = self.env.reset()
         print(f"Episode finished with total reward {total_reward}")
+        return log
 
     def learn(self, total_timesteps) -> None:
         self.model.learn(total_timesteps=total_timesteps, callback=self.callback)

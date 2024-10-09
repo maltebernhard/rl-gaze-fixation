@@ -20,6 +20,7 @@ class Model:
                 # print(f'Observation: {obs} | Action: {action}')
                 obs, reward, done, truncated, info = self.env.step(action)
                 callback.locals['rewards'] = [reward]
+                callback.locals['action'] = action
                 callback.locals['observation'] = obs
                 callback.locals['dones'] = [done]
                 callback._on_step()

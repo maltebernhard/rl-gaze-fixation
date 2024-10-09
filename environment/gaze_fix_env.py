@@ -21,8 +21,6 @@ GREY = (200, 200, 200)
 
 SCREEN_SIZE = 900
 
-REWARD_RENDER_MODE = 1
-
 # =====================================================================================================
 
 class Robot:
@@ -100,6 +98,7 @@ class GazeFixEnv(BaseEnv):
         self.viewer = None
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
         self.render_relative_to_robot = 2
+        self.reward_render_mode = 1
         self.record_video = False
         self.video_path = ""
         self.video = None
@@ -107,11 +106,11 @@ class GazeFixEnv(BaseEnv):
     def step(self, action):
         self.num_steps += 1
         self.time += self.timestep
-        if self.action_mode == 1:
-            action = np.array([action[0]*self.robot.max_acc, action[1]*self.robot.max_acc, action[2]*self.robot.max_acc_rot])
-            self.action = self.validate_action(action) # make sure acceleration vector is within bounds
-            action = self.action
-        self.move_robot(action)
+        if self.action_mode == 2:
+            action = np.array([float(action[0]-1), float(action[1]-1), float(action[2]-1)])
+        self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
+        self.set_robot_velocity()
+        self.move_robot()
         self.move_target()
         self.last_observation, rewards, done, trun, info = self.get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
@@ -219,7 +218,7 @@ class GazeFixEnv(BaseEnv):
         )
 
     def generate_action_space(self):
-        if self.action_mode == 1:
+        if self.action_mode == 1 or self.action_mode == 3:
             self.action_space = gym.spaces.Box(
                 low=np.array([-1.0]*3),
                 high=np.array([1.0]*3),
@@ -234,35 +233,35 @@ class GazeFixEnv(BaseEnv):
     
     # -------------------------------------- helpers -------------------------------------------
 
-    def validate_action(self, action):
-        acc = action[:2]
-        acc_abs = np.linalg.norm(acc)
-        if acc_abs > self.robot.max_acc:
-            acc = (acc / acc_abs) * self.robot.max_acc
-        acc_rot = action[2]
-        if abs(acc_rot) > self.robot.max_acc_rot:
-            acc_rot = acc_rot / abs(acc_rot) * self.robot.max_acc_rot
-        return np.array([acc[0], acc[1], acc_rot])
+    def limit_action(self, action):
+        translation, rotation = action[:2], action[2:]
+        translation_abs = np.linalg.norm(translation)
+        if translation_abs > 1:
+            translation = translation / translation_abs
+        rotation_abs = abs(rotation[0])
+        if rotation_abs > 1:
+            rotation = rotation / rotation_abs
+        return np.concatenate([translation, rotation])
     
-    def move_robot(self, action):
+    def set_robot_velocity(self):
         # set xy and angular accelerations
-        if self.action_mode == 1:
-            acc = np.array([action[0], action[1]])
-            acc_rot = action[2]
-        elif self.action_mode == 2:
-            acc = np.array([(action[0]-1)*self.robot.max_acc, (action[1]-1)*self.robot.max_acc])
-            acc_rot = (action[2] - 1) * self.robot.max_acc_rot
-        self.robot.vel += acc * self.timestep                   # update robot velocity vector
-        self.robot.vel_rot += acc_rot * self.timestep           # update rotational velocity
-        self.limit_robot_velocity()
+        if self.action_mode == 1 or self.action_mode == 2:
+            acc = self.action[:2] * self.robot.max_acc
+            acc_rot = self.action[2]*self.robot.max_acc_rot
+            self.robot.vel += acc * self.timestep                   # update robot velocity vector
+            self.robot.vel_rot += acc_rot * self.timestep           # update rotational velocity
+            self.limit_robot_velocity()
+        elif self.action_mode == 3:
+            self.robot.vel = self.action[:2] * self.robot.max_vel
+            self.robot.vel_rot = self.action[2] * self.robot.max_vel_rot
+            return
 
+    def move_robot(self):
         # move robot
         self.robot.pos += (self.rotation_matrix(self.robot.orientation) @ self.robot.vel) * self.timestep
-        del_orientation = self.robot.vel_rot * self.timestep
-        self.robot.orientation += del_orientation
-        self.robot.vel = self.rotation_matrix(-del_orientation) @ self.robot.vel
-
-        # constrain orientation to range [-pi, pi]
+        self.robot.orientation += self.robot.vel_rot * self.timestep
+        self.robot.vel = self.rotation_matrix(-self.robot.vel_rot * self.timestep) @ self.robot.vel
+        # handle orientation overflow to range [-pi, pi]
         if self.robot.orientation < -np.pi: self.robot.orientation = self.robot.orientation + 2*np.pi
         elif self.robot.orientation > np.pi: self.robot.orientation = self.robot.orientation - 2*np.pi
         self.check_collision()
@@ -391,7 +390,7 @@ class GazeFixEnv(BaseEnv):
                 self.video = vidmaker.Video(self.video_path + "GazeFixation.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
         
         # Fill the screen
-        if REWARD_RENDER_MODE == 1:
+        if self.reward_render_mode == 1:
             self.viewer.fill(GREY)
             self.draw_fov()
         else:
@@ -399,11 +398,12 @@ class GazeFixEnv(BaseEnv):
             pygame.surfarray.blit_array(self.viewer, color_map)
 
         self.render_grid()
-        if REWARD_RENDER_MODE == 1:
-            # draw target distance margin
+        if self.reward_render_mode == 1 and self.reward_margin < 20.0:
+            # TODO: deal better with reward and penalty margins
+            # draw target reward margin
             self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
-            # draw target distance
-            pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
+        # draw target distance
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
         # draw target
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
         # draw vision axis
@@ -415,10 +415,11 @@ class GazeFixEnv(BaseEnv):
         if self.use_obstacles:
             for o in self.obstacles:
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
-                if REWARD_RENDER_MODE == 1:
+                # TODO: deal better with reward and penalty margins
+                if self.reward_render_mode == 1 and self.penalty_margin < 20.0:
                     self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
         # draw an arrow for the robot's action
-        pygame.draw.line(self.viewer, RED, self.pxl_coordinates(self.robot.pos), self.pxl_coordinates(self.polar_point(self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])/self.robot.max_acc))))
+        pygame.draw.line(self.viewer, RED, self.pxl_coordinates(self.robot.pos), self.pxl_coordinates(self.polar_point(self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])))))
 
         self.display_info()
         if self.record_video:

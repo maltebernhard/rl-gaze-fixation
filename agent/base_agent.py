@@ -41,13 +41,10 @@ class BaseAgent:
             self.callback.current_base_episode_reward += np.sum(rewards[self.reward_indices])
         return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation), []
 
-    def save(self, folder = None):
-        if folder is None:
-            if self.folder is None:
-                folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d/%H-%M') + f"_{self.name}/"
-                self.folder = folder
-            else:
-                folder = self.folder
+    def save(self):
+        if self.folder is None:
+            self.folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d/%H-%M') + f"_{self.name}/"
+        folder = self.folder
         for id, agent in self.agents.items():
             filename = f"{id}_model"
             agent.model.save(folder + filename)
@@ -147,9 +144,9 @@ class BaseAgent:
         else:
             raise ValueError(f"Invalid agent key: {agent}")
         
-    def run_agent(self, agent: int, timesteps: int, prints: bool = False, env_seed = None) -> None:
+    def run_agent(self, agent: int, timesteps: int, prints: bool = False, env_seed = None, render=True) -> None:
         if agent in self.agents.keys():
-            self.agents[agent].run(prints=prints, steps=timesteps, env_seed=env_seed)
+            return self.agents[agent].run(prints=prints, steps=timesteps, env_seed=env_seed, render=render)
         else:
             raise ValueError(f"Invalid agent key: {agent}")
 

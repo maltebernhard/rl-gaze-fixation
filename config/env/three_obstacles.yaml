@@ -18,9 +18,9 @@ use_obstacles:      true
 # maximum target_distance as objective (minimum is 0.0, uniform sampling)
 target_distance:    10.0
 # size of reward margin around target distance
-reward_margin:      10.0
+reward_margin:      1000.0
 # size of penalty margin around obstacles
-penalty_margin:     5.0
+penalty_margin:     1000.0
 
 
 # robot config

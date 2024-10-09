@@ -23,16 +23,22 @@
 
 ## ToDo
 
-- new environment
-    - how about classics?
-        - drone landing --> look into lunar lander
+- do super simple one-obstacle mixture model case
+    - maybe fixed spawn positions
+    - plot "a" over time for one episode
+- try baseline implementation
+- maybe remove reward and penalty margins?
+- maybe remove obstacle penalty altogether?
 
-- manifold representation
-    - define space
-    - visualize?
+- Important considerations
+    - additional skills (go sideways, fixate elsewhere, ...)
+        - maybe apply gaussians here?
+    - how to put sensorimotor contingencies into mixture model?
 
 - mixture of experts
     - work with mean and stddev mixture model?
+
+- ask alex about wandb logging
 
 - contingencies
     - include mixture mode of simply deciding between actions --> only lacks time variant actions to fit into options framework
@@ -43,10 +49,11 @@
     - reduce obstacle distance measurement by robot size
     - rethink what's necessary
 
-- Baseline:
-    - reimplement?
-
 - Results:
     - include current model into wandb -> how to log arbitrary data?
 - Time-variant objective:
     - make target move through space
+
+- new environment
+    - how about classics?
+        - drone landing --> look into lunar lander
