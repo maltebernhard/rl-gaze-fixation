@@ -9,7 +9,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from wandb.integration.sb3 import WandbCallback
 import yaml
 
-from agent.agents.agent import StructureAgent
+from agent.structure_agent import StructureAgent
 from agent.agents.contingency import Contingency
 from agent.agents.mixture import MixtureOfExperts
 from agent.agents.mix2re import MixtureOfTwoExperts
@@ -28,10 +28,7 @@ class BaseAgent:
 
         self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
         self.name = self.agent_config["name"].replace(" ", "-")
-        if "reward_indices" in self.agent_config.keys():
-            self.reward_indices = self.agent_config["reward_indices"]
-        else:
-            self.reward_indices = [0, 1, 2, 3]
+        self.reward_indices = self.agent_config["reward_indices"] if "reward_indices" in self.agent_config.keys() else [0]
         self.parse_agents()
         self.training = False
         self.folder = None
@@ -61,13 +58,17 @@ class BaseAgent:
         self.callback.plot_subagent_training_progress(False, folder)
 
     @classmethod
-    def load(self, folder = None):
+    def load(self, folder = None, new_learning_rate = None):
         if folder is None:
             folder = prompt_folder_selection()
         with open(folder + 'env_config.yaml', 'r') as file:
             env_config = yaml.load(file, Loader=yaml.SafeLoader)
         with open(folder + 'agent_config.yaml', 'r') as file:
             agent_config = yaml.load(file, Loader=yaml.SafeLoader)
+        if new_learning_rate is not None:
+            for i, agent in enumerate(agent_config["agents"]):
+                if "learning_rate" in agent.keys():
+                    agent_config["agents"][i]["learning_rate"] = new_learning_rate
         base_agent = BaseAgent(agent_config, env_config)
         for id, agent in base_agent.agents.items():
             filename = f"{id}_model"
@@ -90,7 +91,7 @@ class BaseAgent:
         self.training = True
         try:
             if len(trainable_agents) == 1:
-                self.learn_agent(trainable_agents[0].id, total_timesteps, plot)
+                self.learn_agent(trainable_agents[0].id, total_timesteps)
             else:
                 while timesteps < total_timesteps:
                     for agent in trainable_agents:

@@ -1,11 +1,13 @@
 from abc import abstractmethod
 from datetime import datetime
-from typing import List
+import types
+from typing import List, Tuple, Type
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
 
-from agent.models.model import Model
+from agent.base_model import Model
+from agent.models import policies, contingencies, mixtures, mix2res
 from utils.callback import PlottingCallback, ModularAgentCallback
 from environment.structure_env import StructureEnv
 
@@ -15,18 +17,13 @@ class StructureAgent:
     def __init__(self, base_agent, agent_config: dict, callback: ModularAgentCallback) -> None:
         self.id = agent_config["id"]
         self.config = agent_config
-        self.observation_keys = None
         self.env: StructureEnv = gym.make(
             id='StructureEnv',
             base_agent = base_agent,
-            observation_keys = self.get_observation_keys(),
             action_space = self.create_action_space(),
-            reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0,1,2])
+            reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0])
         )
-        self.observation_indices = self.env.get_wrapper_attr("observation_indices")
-        self.model: Model = None
         self.set_model()
-        self.model_name = agent_config["model_type"]
         self.set_callback(callback)
 
     def run(self, prints = False, steps = 0, env_seed = None, render=True):
@@ -80,7 +77,8 @@ class StructureAgent:
             self.env.unwrapped.last_action = None
         # if it isn't, predict action again
         else:
-            observation = observation[self.observation_indices]
+            if len(self.observation_indices) > 0:
+                observation = observation[self.observation_indices]
             action = self.model.predict(observation)
         return action
 
@@ -90,16 +88,41 @@ class StructureAgent:
         else:
             self.callback = callback
 
-    @abstractmethod
-    def get_observation_keys(self) -> List[str]:
-        raise NotImplementedError
-    
-    @abstractmethod
-    def create_action_space(self, mixture_mode, num_experts):
-        raise NotImplementedError
-    
-    @abstractmethod
     def set_model(self):
+        model_class, model_args, observation_keys = self.get_model_class()
+        self.env.unwrapped.create_observation_space(observation_keys)
+        self.model: Model = model_class(**model_args)
+        self.model_name = self.config["model_type"]
+        self.observation_indices = self.env.get_wrapper_attr("observation_indices")
+
+    def get_model_class(self):
+        if self.config["model_type"] == "PPO":
+            model_class = PPO
+            model_args = {
+                "policy": self.config["policy_type"],
+                "env": self.env,
+                "learning_rate": self.config["learning_rate"],
+                "verbose": 1,
+                "seed": self.config["seed"]
+            }
+            observation_keys = self.config["observation_keys"]
+        else:
+            model_class = None
+            model_args = {"env": self.env}
+            for submodule in [policies, contingencies, mixtures, mix2res]:
+                for classname in dir(submodule):
+                    clss = getattr(submodule, classname)
+                    if isinstance(clss, type):
+                        if issubclass(clss, Model) and clss is not Model and clss.id == self.config["model_type"]:
+                            model_class = clss
+                            break
+            if model_class is None:
+                raise ValueError(f"Model type {self.config['model_type']} not supported for Policy Agent")
+            observation_keys = model_class.observation_keys
+        return model_class, model_args, observation_keys
+    
+    @abstractmethod
+    def create_action_space(self):
         raise NotImplementedError
 
     @abstractmethod

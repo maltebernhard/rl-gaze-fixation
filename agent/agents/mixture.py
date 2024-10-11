@@ -1,8 +1,10 @@
+import types
 import gymnasium as gym
 import numpy as np
 from typing import List
-from agent.agents.agent import StructureAgent
-from stable_baselines3 import PPO
+from agent.structure_agent import StructureAgent
+import agent.models.mixtures as mixtures
+from agent.base_model import Model
 
 # =========================================================================================================
 
@@ -10,6 +12,7 @@ class MixtureOfExperts(StructureAgent):
     def __init__(self, base_agent, agent_config, callback, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
+        self.models = mixtures
         super().__init__(base_agent, agent_config, callback)
 
     def create_action_space(self):
@@ -17,6 +20,8 @@ class MixtureOfExperts(StructureAgent):
             self.action_space_dimensionality = 1
         elif self.mixture_mode == 2:
             self.action_space_dimensionality = self.env.unwrapped.base_env.unwrapped.action_space.shape[0]
+        elif self.mixture_mode == 3:
+            return gym.spaces.Discrete(len(self.experts))
         else:
             raise ValueError("Mixture mode not supported")
         return gym.spaces.Box(
@@ -24,18 +29,6 @@ class MixtureOfExperts(StructureAgent):
             high=np.array([1.0 for _ in range(len(self.experts)*self.action_space_dimensionality)]).flatten(),
             dtype=np.float64
         )
-
-    def set_model(self):
-        if self.config["model_type"] == "PPO":
-            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
-        else:
-            raise ValueError("Model type not supported for Mixture-of-Experts Agent")
-        
-    def get_observation_keys(self):
-        if self.config["model_type"] == "PPO":
-            return self.config["observation_keys"]
-        else:
-            return None
 
     def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
         weights = self.normalize_weights(action)

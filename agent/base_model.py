@@ -1,11 +1,13 @@
 from abc import abstractmethod
-import numpy as np
 from environment.structure_env import StructureEnv
 from utils.plotting import PlottingCallback
 
 # =============================================================================
 
 class Model:
+    id = "M"
+    observation_keys = []
+
     def __init__(self, env: StructureEnv, config={}) -> None:
         self.env = env
 

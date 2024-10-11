@@ -1,10 +1,10 @@
+import types
 import gymnasium as gym
 import numpy as np
 from typing import List
-from agent.agents.agent import StructureAgent
-from stable_baselines3 import PPO
-from agent.models.target_following_obstacle_evasion_mixture import TargetFollowingObstacleEvasionMixtureModel
-from agent.models.fifty_fifty_mixture import FiftyFiftyMixtureModel
+from agent.structure_agent import StructureAgent
+import agent.models.mix2res as mixtures
+from agent.base_model import Model
 
 # =========================================================================================================
 
@@ -12,6 +12,7 @@ class MixtureOfTwoExperts(StructureAgent):
     def __init__(self, base_agent, agent_config, callback, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
+        self.models = mixtures
         super().__init__(base_agent, agent_config, callback)
 
     def create_action_space(self):
@@ -26,24 +27,6 @@ class MixtureOfTwoExperts(StructureAgent):
             high=np.array([1.0 for _ in range(self.action_space_dimensionality)]).flatten(),
             dtype=np.float64
         )
-
-    def set_model(self):
-        if self.config["model_type"] == "PPO":
-            self.model = PPO(self.config["policy_type"], self.env, learning_rate=self.config["learning_rate"], verbose=1, seed=self.config["seed"])
-        elif self.config["model_type"] == "TOM":
-            self.model = TargetFollowingObstacleEvasionMixtureModel(self.env, mixture_mode=self.config["mixture_mode"], action_space_dimensionality=self.action_space_dimensionality)
-        elif self.config["model_type"] == "55M":
-            self.model = FiftyFiftyMixtureModel(self.env, mixture_mode=self.config["mixture_mode"], action_space_dimensionality=self.action_space_dimensionality)
-        else:
-            raise ValueError("Model type not supported for Mixture-of-Experts Agent")
-        
-    def get_observation_keys(self):
-        if self.config["model_type"] == "PPO":
-            return self.config["observation_keys"]
-        elif self.config["model_type"] == "TOM":
-            return TargetFollowingObstacleEvasionMixtureModel.observation_keys
-        else:
-            return None
 
     def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
         if self.mixture_mode == 1:

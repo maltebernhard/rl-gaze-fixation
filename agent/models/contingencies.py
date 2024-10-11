@@ -1,19 +1,20 @@
 import numpy as np
-from agent.models.model import Model
+from agent.base_model import Model
 from environment.structure_env import StructureEnv
 
 # =============================================================================
 
 class GazeFixationModel(Model):
+    id = "GFM"
     observation_keys = ["target_offset_angle", "del_target_offset_angle"]
 
-    def __init__(self, env: StructureEnv, max_vel_rot, max_acc_rot):
+    def __init__(self, env: StructureEnv):
         super().__init__(env)
-        self.max_vel = max_vel_rot
-        self.max_acc = max_acc_rot
+        self.max_vel = env.unwrapped.base_env_config["robot_max_vel_rot"]
+        self.max_acc = env.unwrapped.base_env_config["robot_max_acc_rot"]
         self.breaking_angle = (self.max_vel ** 2) / (2 * self.max_acc)
-        self.action_mode = self.env.unwrapped.action_mode
-        self.timestep = self.env.unwrapped.timestep
+        self.action_mode = env.unwrapped.base_env_config["action_mode"]
+        self.timestep = env.unwrapped.base_env_config["timestep"]
         self.epsilon = self.timestep
 
     def predict(self, obs, deterministic = True):

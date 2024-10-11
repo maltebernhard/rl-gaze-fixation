@@ -161,6 +161,8 @@ class GazeFixEnv(BaseEnv):
         dist = self.robot_target_distance()
         if abs(dist-self.target.distance) < self.reward_margin:
             target_proximity_reward = 1.0 / (abs(dist-self.target.distance) + 1.0) * self.timestep
+        # time penalty
+        time_penalty = -0.1 * self.timestep
         # penalty for being close to obstacle
         obstacle_proximity_penalty = 0.0
         if self.use_obstacles:
@@ -178,6 +180,7 @@ class GazeFixEnv(BaseEnv):
 
         return np.array([
             target_proximity_reward,
+            time_penalty,
             obstacle_proximity_penalty,
             energy_waste_penalty,
             collision_penalty
@@ -365,11 +368,11 @@ class GazeFixEnv(BaseEnv):
     def generate_obstacles(self):
         self.obstacles = []
         target_distance = np.linalg.norm(self.target.pos)
-        std_dev = target_distance / 3
+        std_dev = target_distance / 8
         midpoint = (self.target.pos + self.robot.pos) / 2
         for _ in range(self.num_obstacles):
             while True:
-                radius = max(np.random.random() * self.world_size / 6, self.world_size / 15)
+                radius = self.world_size / 10
                 pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
                 # Ensure the obstacle doesn't spawn too close to robot
                 if np.linalg.norm(pos-self.robot.pos) > radius + self.penalty_margin + self.robot.size:

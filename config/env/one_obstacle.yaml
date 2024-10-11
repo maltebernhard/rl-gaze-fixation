@@ -4,7 +4,7 @@ timestep:           0.05
 # render window dimensions, influences target and obstacle sizes and spawn distances
 world_size:         50.0
 # max. sim time seconds per episonde
-episode_duration:   30.0
+episode_duration:   10.0
 # collisions with environment borders - DEPRECATED
 wall_collision:     false
 

@@ -1,0 +1,78 @@
+# Types:
+# - PLCY - Policy
+# - CONT - Contingency
+# - MXTR - Mixture
+
+# Available Observation Keys:
+# - "target_distance"
+# - "target_offset_angle"
+# - "del_target_offset_angle"
+# - "vel_rot"
+# - "vel_frontal"
+# - "vel_lateral"
+# - "robot_target_distance"
+# - "obstacle1_offset_angle"
+# - "obstacle1_coverage"
+# - "obstacle1_distance"
+# - "obstacle2_offset_angle"
+# - "obstacle2_coverage"
+# - "obstacle2_distance"
+# - ...
+# - "obstacleN_offset_angle"
+# - "obstacleN_coverage"
+# - "obstacleN_distance"
+
+# Agent Config Dict Structure:
+# - id: <str>
+#   - type: <str>
+#   - model_type: <str>
+#   - observation_keys: <list>
+#     (only if model is learnable)
+#   - model specific params
+
+name: ppo policy mixture with gaze fixation
+agents:
+  - id: Go-Towards-Target-Agent
+    type: PLCY
+    model_type: GTT
+    action_space_dimensionality: 2
+
+  - id: Avoid-Nearest-Obstacle-Agent
+    type: PLCY
+    model_type: ANO
+    action_space_dimensionality: 2
+
+  - id: Stand-Still-Agent
+    type: PLCY
+    model_type: SST
+    action_space_dimensionality: 2
+
+  - id: Go-Left-Agent
+    type: PLCY
+    model_type: GLM
+    action_space_dimensionality: 2
+
+  - id: Go-Right-Agent
+    type: PLCY
+    model_type: GRM
+    action_space_dimensionality: 2
+
+  - id: Mixture-Agent
+    type: MXTR
+    model_type: PPO
+    observation_keys:
+      - "robot_target_distance"
+      - "obstacle1_distance"
+      - "obstacle1_offset_angle"
+    reward_indices: [0, 1]
+    mixture_mode: 1
+    experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent, Go-Left-Agent, Go-Right-Agent]
+    policy_type: MlpPolicy
+    learning_rate: 0.0005
+    verbose: 1
+    seed: 1
+
+  - id: Gaze-Fixation-Agent
+    type: CONT
+    model_type: GFM
+    contingent_agent: Mixture-Agent

@@ -5,12 +5,12 @@ import numpy as np
 from environment.base_env import Observation
 
 class StructureEnv(gym.Env):
-    def __init__(self, base_agent, observation_keys = None, action_space = None, reward_indices = np.array([0,1,2])):
+    def __init__(self, base_agent, action_space = None, reward_indices = np.array([0])):
         super().__init__()
-        #self.base_env = base_env
         self.base_agent = base_agent
-        self.create_observation_space(observation_keys)
+        self.base_env_config = self.base_agent.env_config
         self.action_space = action_space
+        self.observation_space = self.base_agent.observation_space
         self.action_mode = self.base_agent.env_config["action_mode"]
         self.timestep = self.base_agent.env_config["timestep"]
         self.reward_indices = reward_indices
