@@ -3,7 +3,8 @@ from agent.base_agent import BaseAgent
 
 #agent_path = "./config/agent/1obst-(targ_obst_still_ppo)_ppo_gaze.yaml"
 #agent_path = "./config/agent/1obst-(targ_obst_still)_ppo_gaze.yaml"
-agent_path = "./config/agent/1obst-(targ_obst_still_left_right)_ppo_gaze.yaml"
+#agent_path = "./config/agent/1obst-(targ_obst_still_left_right)_ppo_gaze.yaml"
+agent_path = "./config/agent/ppo_gazefix.yaml"
 
 with open("./config/env/one_obstacle.yaml") as file:
     env_config = yaml.load(file, Loader=yaml.FullLoader)

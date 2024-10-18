@@ -13,19 +13,7 @@ class ModularAgentCallback(BaseCallback):
         super().__init__(verbose)
         self.model_name = model_name
         self.submodel_name = None
-
-        # TODO:
-        # self.run = wandb.init(
-        #     project=project_name,
-        #     name=name,
-        #     config=model_config,
-        #     group=group,
-        #     sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
-        #     monitor_gym=False,      # auto-upload the videos of agents playing the game
-        #     save_code=False,        # optional
-        #     tags=tags,
-        # )
-
+        self.run = None
         self.episode_rewards: Dict[str,list] = {"base": []}
         self.current_episode_reward = 0
         self.current_base_episode_rewards = np.zeros(5)
@@ -57,14 +45,23 @@ class ModularAgentCallback(BaseCallback):
             self.current_episode_reward = 0
             self.current_base_episode_rewards = np.zeros(5)
 
-        #TODO: self.run.log({"reward": reward, "action": action, "observation": obs, "done": done})
+        # wandb logging
+        if self.run is not None:
+            #print(self.locals)
+            reward = self.locals['rewards'][0]
+            action = self.locals['actions'][0]
+            # TODO: why is action outside of action space?
+            obs = self.locals['new_obs'][0]
+            done = self.locals['dones'][0]
+            self.run.log({"reward": reward, "action": action, "observation": obs, "done": done})
         
         return True
     
     def _on_training_end(self) -> None:
         self.current_episode_reward = 0
         self.current_base_episode_rewards = 0
-        #TODO: self.run.finish()
+        self.episode_rewards = {"base": []}
+        self.run = None
 
     # ---------------------------------- plotting ----------------------------------
 

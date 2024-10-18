@@ -8,7 +8,7 @@ from stable_baselines3 import PPO
 
 from agent.base_model import Model
 from agent.models import policies, contingencies, mixtures, mix2res
-from utils.callback import PlottingCallback, ModularAgentCallback
+from utils.callback import ModularAgentCallback
 from environment.structure_env import StructureEnv
 
 # ===========================================================================================
@@ -82,7 +82,7 @@ class StructureAgent:
 
     def set_callback(self, callback=None) -> None:
         if callback is None:
-            self.callback = PlottingCallback(self.model_name)
+            self.callback = ModularAgentCallback(self.model_name)
         else:
             self.callback = callback
 

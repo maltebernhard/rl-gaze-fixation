@@ -2,15 +2,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.callback import ModularAgentCallback, PlottingCallback
-    
-def plot_training_progress(callback: PlottingCallback):
-    # Plot the rewards
-    plt.plot(callback.episode_rewards)
-    plt.xlabel('Episodes')
-    plt.ylabel('Reward')
-    plt.title('Training Progress')
-    plt.show()
+from utils.callback import ModularAgentCallback
 
 def plot_training_progress_modular(callbacks: List[ModularAgentCallback]):
     # Ensure we have at least one callback to plot

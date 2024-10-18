@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from environment.structure_env import StructureEnv
-from utils.plotting import PlottingCallback
+from utils.plotting import ModularAgentCallback
 import wandb
 # =============================================================================
 
@@ -11,7 +11,7 @@ class Model:
     def __init__(self, env: StructureEnv, config={}) -> None:
         self.env = env
 
-    def learn(self, total_timesteps: int, callback: PlottingCallback):
+    def learn(self, total_timesteps: int, callback: ModularAgentCallback):
         obs, info = self.env.reset()
         timestep = 0
         while timestep < total_timesteps:

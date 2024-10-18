@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from typing import Dict, List, Tuple
 from stable_baselines3.common.base_class import BaseAlgorithm
+import wandb
 from wandb.integration.sb3 import WandbCallback
 import yaml
 
@@ -22,23 +23,24 @@ from tqdm import tqdm
 # =============================================================================
 
 class BaseAgent:
-    def __init__(self, agent_config, env_config) -> None:
+    def __init__(self, agent_config, env_config, folder=None) -> None:
         self.agent_config = agent_config
         self.env_config = env_config
         self.make_base_env(env_config)
 
         self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
+        self.timestamp = datetime.today().strftime('%Y-%m-%d_%H-%M')
         self.name = self.agent_config["name"].replace(" ", "-")
         self.parse_agents()
         self.training = False
-        self.folder = None
+        if folder is None:
+            folder = f"./training_data/{self.timestamp.split('_')[0]}/{self.timestamp.split('_')[1]}_{self.name}/"
+        self.folder = folder
 
     def predict(self, observation: np.ndarray) -> Tuple[np.ndarray, list]:
         return self.last_agent.predict_transformed_action(observation)
 
     def save(self):
-        if self.folder is None:
-            self.folder = "./training_data/" + datetime.today().strftime('%Y-%m-%d/%H-%M') + f"_{self.name}/"
         folder = self.folder
         for id, agent in self.agents.items():
             filename = f"{id}_model"
@@ -83,7 +85,8 @@ class BaseAgent:
         return base_agent
 
     def learn(self, total_timesteps: int, timesteps_per_run: int, save=True, plot=False) -> None:
-        timesteps: int = 0
+        self.init_wandb_run(project_name="TestProject", run_name=f"{self.timestamp}_{self.name}", group=None, tags=["test"])
+        timesteps_trained: int = 0
         trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
         total_runs = int(np.ceil(total_timesteps / timesteps_per_run))
         run: int = 0
@@ -94,14 +97,14 @@ class BaseAgent:
             if len(trainable_agents) == 1:
                 self.learn_agent(trainable_agents[0].id, total_timesteps)
             else:
-                while timesteps < total_timesteps:
+                while timesteps_trained < total_timesteps:
                     for agent in trainable_agents:
                         run += 1
                         # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
                         tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
                         self.callback.set_submodel_name(agent.id)
                         agent.learn(timesteps_per_run)
-                        timesteps += timesteps_per_run
+                        timesteps_trained += timesteps_per_run
                         progress_bar.update(1)
         except KeyboardInterrupt:
             print("Training interrupted by user")
@@ -219,6 +222,18 @@ class BaseAgent:
                 self.last_agent = agent
                 return
             
+    def init_wandb_run(self, project_name: str, run_name: str, group: str, tags: List[str]) -> None:
+        self.wandb_run = wandb.init(
+            project=project_name,
+            name=run_name,
+            config=self.agent_config,
+            group=group,
+            sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+            save_code=False,        # optional
+            tags=tags,
+        )
+        self.callback.run = self.wandb_run
+
     # def set_wandb_callback(self):
     #     for agent in self.agents.values():
     #         agent.callback = WandbCallback(
