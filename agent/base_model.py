@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from environment.structure_env import StructureEnv
 from utils.plotting import PlottingCallback
-
+import wandb
 # =============================================================================
 
 class Model:

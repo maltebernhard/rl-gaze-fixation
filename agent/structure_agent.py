@@ -26,13 +26,13 @@ class StructureAgent:
         self.set_model()
         self.set_callback(callback)
 
-    def run(self, prints = False, steps = 0, env_seed = None, render=True):
+    def run(self, timesteps = 0, env_seed = None, render = True, prints = False):
         log = {"actions": [], "observations": [], "rewards": []}
         total_reward = 0
         step = 0
         obs, info = self.env.reset(seed=env_seed)
         done = False
-        while not done and (steps==0 or step < steps):
+        while not done and (timesteps==0 or step < timesteps):
             action, _states = self.predict(obs)
             log["actions"].append(action)
             log["observations"].append(obs)
@@ -70,17 +70,15 @@ class StructureAgent:
         action = self.model.predict(observation, deterministic)
         return action
     
-    def predict_full_observation(self, observation: np.ndarray) -> np.ndarray:
+    def predict_transformed_action(self, observation: np.ndarray) -> np.ndarray:
         # if last_action is set, this model is actively controlling the environment
         if self.env.unwrapped.last_action is not None:
-            action = self.env.unwrapped.last_action.copy(), None
+            action = self.env.unwrapped.last_action.copy()
             self.env.unwrapped.last_action = None
         # if it isn't, predict action again
         else:
-            if len(self.observation_indices) > 0:
-                observation = observation[self.observation_indices]
-            action = self.model.predict(observation)
-        return action
+            action = self.model.predict(observation[self.observation_indices])[0]
+        return self.transform_action(action, observation), []
 
     def set_callback(self, callback=None) -> None:
         if callback is None:
@@ -89,8 +87,8 @@ class StructureAgent:
             self.callback = callback
 
     def set_model(self):
-        model_class, model_args, observation_keys = self.get_model_class()
-        self.env.unwrapped.create_observation_space(observation_keys)
+        model_class, model_args, self.observation_keys = self.get_model_class()
+        self.env.unwrapped.create_observation_space(self.observation_keys)
         self.model: Model = model_class(**model_args)
         self.model_name = self.config["model_type"]
         self.observation_indices = self.env.get_wrapper_attr("observation_indices")

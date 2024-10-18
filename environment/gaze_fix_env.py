@@ -123,15 +123,20 @@ class GazeFixEnv(BaseEnv):
         self.total_reward += rew
         return np.array(list(self.last_observation.values())), rewards, done, trun, info
     
-    def reset(self, seed=None, record_video=False, video_path = "", **kwargs):
+    def reset(self, seed=None, video_path = None, **kwargs):
         if seed is not None:
             super().reset(seed=seed)
         if self.video is not None:
-            os.makedirs(self.video_path, exist_ok=True)
+            dirs = self.video_path.split("/")
+            if len(dirs) > 1:
+                os.makedirs("/".join(dirs[:-1]), exist_ok=True)
             self.video.export(verbose=True)
-            #self.video.compress(target_size = int(self.time/10 * 1024), new_file=True)
-        self.record_video = record_video
-        self.video_path = video_path
+        
+        if video_path is not None:
+            self.record_video = True
+            self.video_path = video_path
+        else:
+            self.record_video = False
         self.viewer = None
         self.time = 0.0
         self.num_steps = 0
@@ -156,13 +161,14 @@ class GazeFixEnv(BaseEnv):
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
     def get_rewards(self):
+        time_left = 1.0 - self.time / self.episode_duration
         # reward for being close to target distance
         target_proximity_reward = 0.0
         dist = self.robot_target_distance()
         if abs(dist-self.target.distance) < self.reward_margin:
             target_proximity_reward = 1.0 / (abs(dist-self.target.distance) + 1.0) * self.timestep
         # time penalty
-        time_penalty = -0.1 * self.timestep
+        time_penalty = - self.timestep / self.episode_duration
         # penalty for being close to obstacle
         obstacle_proximity_penalty = 0.0
         if self.use_obstacles:
@@ -172,11 +178,16 @@ class GazeFixEnv(BaseEnv):
                     obstacle_proximity_penalty -= 1.0 / (abs(dist-obstacle.radius) + 1.0) * self.timestep / self.num_obstacles / 10
         # penalize energy waste
         energy_waste_penalty = 0.0
-        energy_waste_penalty -= np.linalg.norm(self.action[:2]) / self.robot.max_acc * self.timestep / 20
-        energy_waste_penalty -= abs(self.action[2]) / self.robot.max_acc_rot * self.timestep / 20
+        if self.action_mode == 1 or self.action_mode == 2:
+            energy_waste_penalty -= (self.timestep / self.episode_duration / 2) * np.linalg.norm(self.action[:2]) / self.robot.max_acc
+            energy_waste_penalty -= (self.timestep / self.episode_duration / 2) * abs(self.action[2]) / self.robot.max_acc_rot
+        elif self.action_mode == 3:
+            energy_waste_penalty -= (self.timestep / self.episode_duration / 2) * np.linalg.norm(self.action[:2]) / self.robot.max_vel
+            energy_waste_penalty -= (self.timestep / self.episode_duration / 2) * abs(self.action[2]) / self.robot.max_vel_rot
 
         # penalize collision
-        collision_penalty = 1.0 if self.collision else 0.0
+        #collision_penalty = - time_left if self.collision else 0.0
+        collision_penalty = - 1.0 if self.collision else 0.0
 
         return np.array([
             target_proximity_reward,
@@ -390,7 +401,7 @@ class GazeFixEnv(BaseEnv):
             self.viewer = pygame.display.set_mode((self.screen_size, self.screen_size))
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
-                self.video = vidmaker.Video(self.video_path + "GazeFixation.mp4", fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
+                self.video = vidmaker.Video(self.video_path, fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
         
         # Fill the screen
         if self.reward_render_mode == 1:

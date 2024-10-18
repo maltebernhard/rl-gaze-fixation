@@ -4,7 +4,7 @@ import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from stable_baselines3.common.base_class import BaseAlgorithm
 from wandb.integration.sb3 import WandbCallback
 import yaml
@@ -15,6 +15,7 @@ from agent.agents.mixture import MixtureOfExperts
 from agent.agents.mix2re import MixtureOfTwoExperts
 from agent.agents.policy import Policy
 from utils.callback import ModularAgentCallback
+from utils.plotting import plot_actions_observations
 from utils.user_interface import prompt_folder_selection
 from tqdm import tqdm
 
@@ -28,15 +29,12 @@ class BaseAgent:
 
         self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
         self.name = self.agent_config["name"].replace(" ", "-")
-        self.reward_indices = self.agent_config["reward_indices"] if "reward_indices" in self.agent_config.keys() else [0]
         self.parse_agents()
         self.training = False
         self.folder = None
 
-    def predict(self, observation: np.ndarray, rewards=None) -> np.ndarray:
-        if rewards is not None:
-            self.callback.current_base_episode_reward += np.sum(rewards[self.reward_indices])
-        return self.last_agent.transform_action(self.last_agent.predict_full_observation(observation)[0], observation), []
+    def predict(self, observation: np.ndarray) -> Tuple[np.ndarray, list]:
+        return self.last_agent.predict_transformed_action(observation)
 
     def save(self):
         if self.folder is None:
@@ -56,6 +54,9 @@ class BaseAgent:
             yaml.dump(episode_rewards_serializable, file, default_flow_style=False)
         self.callback.plot_training_progress(False, folder)
         self.callback.plot_subagent_training_progress(False, folder)
+        trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
+        for agent in trainable_agents:
+            plot_actions_observations(agent, num_logs=20, env_seed=5, savepath=folder)
 
     @classmethod
     def load(self, folder = None, new_learning_rate = None):
@@ -84,10 +85,10 @@ class BaseAgent:
     def learn(self, total_timesteps: int, timesteps_per_run: int, save=True, plot=False) -> None:
         timesteps: int = 0
         trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
-        total_runs = int(np.ceil(total_timesteps / timesteps_per_run / len(trainable_agents)))
+        total_runs = int(np.ceil(total_timesteps / timesteps_per_run))
         run: int = 0
         if len(trainable_agents) > 1:
-            progress_bar = tqdm(total=total_runs, desc="Training Progress", position=0, leave=True, dynamic_ncols=True)
+            progress_bar = tqdm(total=total_runs+1, desc="Training Progress", position=1, leave=True, dynamic_ncols=True)
         self.training = True
         try:
             if len(trainable_agents) == 1:
@@ -114,13 +115,15 @@ class BaseAgent:
         if plot:
             self.callback.plot_training_progress(True)
             self.callback.plot_subagent_training_progress(True)
+            for agent in trainable_agents:
+                plot_actions_observations(agent, num_logs=20, env_seed=5) 
 
-    def run(self, prints = False, steps = 0, env_seed = None) -> None:
+    def run(self, prints = False, timesteps = 0, env_seed = None, video_path = None) -> None:
         total_reward = 0
         step = 0
-        obs, info = self.reset(seed=env_seed)
+        obs, info = self.reset(seed=env_seed, video_path=video_path)
         done = False
-        while not done and (steps==0 or step < steps):
+        while not done and (timesteps==0 or step < timesteps):
             action, _states = self.predict(obs)
             if prints:
                 print(f'-------------------- Step {step} ----------------------')
@@ -145,14 +148,14 @@ class BaseAgent:
         else:
             raise ValueError(f"Invalid agent key: {agent}")
         
-    def run_agent(self, agent: int, timesteps: int, prints: bool = False, env_seed = None, render=True) -> None:
-        if agent in self.agents.keys():
-            return self.agents[agent].run(prints=prints, steps=timesteps, env_seed=env_seed, render=render)
+    def run_agent(self, agent_id: str, timesteps: int = 0, env_seed = None, render = True, prints: bool = False) -> None:
+        if agent_id in self.agents.keys():
+            return self.agents[agent_id].run(timesteps=timesteps, env_seed=env_seed, render=render, prints=prints)
         else:
-            raise ValueError(f"Invalid agent key: {agent}")
+            raise ValueError(f"Invalid agent key: {agent_id}")
 
     def parse_agents(self):
-        agents_config: Dict[int, dict] = self.agent_config["agents"]
+        agents_config: Dict[str, List[dict]] = self.agent_config["agents"]
         self.agents: dict[int, StructureAgent] = {}
         for agent_config in agents_config:
             if agent_config["type"] == "PLCY":
@@ -201,7 +204,6 @@ class BaseAgent:
         self.action_space = self.base_env.action_space
         self.observation_space = self.base_env.observation_space
         self.last_observation = None
-        self.last_rewards = None
 
     def set_last_agent(self) -> None:
         for agent_id, agent in self.agents.items():
@@ -217,20 +219,21 @@ class BaseAgent:
                 self.last_agent = agent
                 return
             
-    def set_wandb_callback(self):
-        for agent in self.agents.values():
-            agent.callback = WandbCallback(
-                gradient_save_freq=100,
-                model_save_path=None,
-                verbose=2,
-            )
+    # def set_wandb_callback(self):
+    #     for agent in self.agents.values():
+    #         agent.callback = WandbCallback(
+    #             gradient_save_freq=100,
+    #             model_save_path=None,
+    #             verbose=2,
+    #         )
 
     # =========================== env control ===================================
 
     def act(self):
-        action = self.predict(self.last_observation, self.last_rewards)[0]
-        self.last_observation, self.last_rewards, done, truncated, info = self.step(action)
-        return self.last_observation, self.last_rewards, done, truncated, info
+        action = self.predict(self.last_observation)[0]
+        self.last_observation, rewards, done, truncated, info = self.step(action)
+        self.callback.current_base_episode_rewards += rewards
+        return self.last_observation, rewards, done, truncated, info
 
     def step(self, action: np.ndarray):
         return self.base_env.step(action)

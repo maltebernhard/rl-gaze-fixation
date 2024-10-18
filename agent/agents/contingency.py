@@ -23,6 +23,5 @@ class Contingency(StructureAgent):
         )
 
     def transform_action(self, action: np.ndarray, observation: np.ndarray) -> np.ndarray:
-        previous_action = self.contingent_agent.predict_full_observation(observation)[0]
-        action = np.concatenate([self.contingent_agent.transform_action(previous_action, observation), action])
+        action = np.concatenate([self.contingent_agent.predict_transformed_action(observation)[0], action])
         return action

@@ -1,11 +1,9 @@
-
-
 from agent.base_agent import BaseAgent
+from utils.plotting import plot_actions_observations
 
 
 agent = BaseAgent.load()
 
-#agent.learn(0, 2048, save=True, plot=True)
+agent.run(timesteps=1000, env_seed=5, prints=True)
 
-for i in range(10):
-    agent.run(prints=True, steps=1000)
+plot_actions_observations(agent.agents["Mixture-Agent"], num_logs=20, env_seed=5, savepath=None)

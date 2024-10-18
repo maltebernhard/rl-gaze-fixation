@@ -170,9 +170,9 @@ class GoLeftModel(Model):
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         if self.action_space_dimensionality == 2:
-            action = np.array([0.0, -1.0])
+            action = np.array([0.0, 1.0])
         elif self.action_space_dimensionality == 3:
-            action = np.array([0.0, -1.0, 0.0])
+            action = np.array([0.0, 1.0, 0.0])
         else:
             raise ValueError("Invalid action space dimensionality")
         return action, None
@@ -189,9 +189,9 @@ class GoRightModel(Model):
 
     def predict(self, state, eps = 0.01, deterministic: bool = True):
         if self.action_space_dimensionality == 2:
-            action = np.array([0.0, 1.0])
+            action = np.array([0.0, -1.0])
         elif self.action_space_dimensionality == 3:
-            action = np.array([0.0, 1.0, 0.0])
+            action = np.array([0.0, -1.0, 0.0])
         else:
             raise ValueError("Invalid action space dimensionality")
         return action, None

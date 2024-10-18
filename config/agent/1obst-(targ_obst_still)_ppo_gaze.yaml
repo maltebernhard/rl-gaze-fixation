@@ -53,13 +53,14 @@ agents:
     observation_keys:
       - "robot_target_distance"
       - "obstacle1_distance"
-    reward_indices: [0, 1]
+      - "obstacle1_offset_angle"
+    reward_indices: [0, 1, 2]
     mixture_mode: 1
     experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent]
     policy_type: MlpPolicy
     learning_rate: 0.0005
     verbose: 1
-    seed: 1
+    seed: 2
 
   - id: Gaze-Fixation-Agent
     type: CONT

@@ -52,6 +52,8 @@ class StructureEnv(gym.Env):
             observation_dict: Dict[str, Observation] = {}
             all_observations: Dict[str, Observation] = self.base_agent.observations
             observation_indices = []
+            if len(observation_keys) == 0:
+                observation_keys = list(all_observations.keys())
             for obskey in observation_keys:
                 index = 0
                 for key, obs in all_observations.items():

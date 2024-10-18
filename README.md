@@ -23,34 +23,19 @@
 
 ## ToDo
 
-- do super simple one-obstacle mixture model case
-    - maybe fixed spawn positions
-    - plot "a" over time for one episode
-- try baseline implementation
-- maybe remove reward and penalty margins?
-- maybe remove obstacle penalty altogether?
+- play around with reward and penalty margins / obstacle proximity vs. collision penalty?
 
 - Important considerations
     - additional skills (go sideways, fixate elsewhere, ...)
         - maybe apply gaussians here?
     - how to put sensorimotor contingencies into mixture model?
 
-- mixture of experts
-    - work with mean and stddev mixture model?
-
-- ask alex about wandb logging
+- apply wandb logging
 
 - contingencies
-    - include mixture mode of simply deciding between actions --> only lacks time variant actions to fit into options framework
     - max radial velocity contingency for obstacles
         - could be relevant to include some understanding of which contingency is active into model
 
-- observations
-    - reduce obstacle distance measurement by robot size
-    - rethink what's necessary
-
-- Results:
-    - include current model into wandb -> how to log arbitrary data?
 - Time-variant objective:
     - make target move through space
 

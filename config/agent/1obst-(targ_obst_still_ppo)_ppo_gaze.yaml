@@ -47,15 +47,19 @@ agents:
     model_type: SST
     action_space_dimensionality: 2
 
-  - id: Go-Left-Agent
+  - id: General-Policy-Agent
     type: PLCY
-    model_type: GLM
+    model_type: PPO
+    observation_keys:
+      - "robot_target_distance"
+      - "obstacle1_distance"
+      - "obstacle1_offset_angle"
+    reward_indices: [0]
     action_space_dimensionality: 2
-
-  - id: Go-Right-Agent
-    type: PLCY
-    model_type: GRM
-    action_space_dimensionality: 2
+    policy_type: MlpPolicy
+    learning_rate: 0.0005
+    verbose: 1
+    seed: 1
 
   - id: Mixture-Agent
     type: MXTR
@@ -64,14 +68,9 @@ agents:
       - "robot_target_distance"
       - "obstacle1_distance"
       - "obstacle1_offset_angle"
-    # 0 - target_proximity_reward
-    # 1 - time_penalty
-    # 2 - obstacle_proximity_penalty
-    # 3 - energy_waste_penalty
-    # 4 - collision_penalty
-    reward_indices: [0, 1, 2, 3, 4]
+    reward_indices: [0]
     mixture_mode: 1
-    experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent, Go-Left-Agent, Go-Right-Agent]
+    experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent, General-Policy-Agent]
     policy_type: MlpPolicy
     learning_rate: 0.0005
     verbose: 1

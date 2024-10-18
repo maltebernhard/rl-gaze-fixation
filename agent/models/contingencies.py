@@ -27,9 +27,7 @@ class GazeFixationModel(Model):
             return np.array([self.vel_control(obs[0])]), None
         
     def vel_control(self, target_offset_angle):
-        if abs(target_offset_angle) > self.epsilon:
-            return min(target_offset_angle/self.timestep, 1.0)
-        return 0.0
+        return min(target_offset_angle/(self.max_vel*self.timestep), 1.0)
 
     def flip_control(self, target, current):
         action = 1

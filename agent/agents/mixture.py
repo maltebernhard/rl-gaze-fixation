@@ -36,8 +36,7 @@ class MixtureOfExperts(StructureAgent):
         actions = []
         # n x m array of actions
         for expert in self.experts:
-            a = expert.predict_full_observation(observation)[0]
-            actions.append(expert.transform_action(a, observation))
+            actions.append(expert.predict_transformed_action(observation)[0])
         # apply mixture
         action = np.sum(weights * actions, axis = 0)
         return action
