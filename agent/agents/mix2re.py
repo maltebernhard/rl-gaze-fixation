@@ -9,11 +9,11 @@ from agent.base_model import Model
 # =========================================================================================================
 
 class MixtureOfTwoExperts(StructureAgent):
-    def __init__(self, base_agent, agent_config, callback, experts):
+    def __init__(self, base_agent, agent_config, experts):
         self.experts: List[StructureAgent] = experts
         self.mixture_mode = agent_config["mixture_mode"]
         self.models = mixtures
-        super().__init__(base_agent, agent_config, callback)
+        super().__init__(base_agent, agent_config)
 
     def create_action_space(self):
         if self.mixture_mode == 1:

@@ -69,6 +69,12 @@ agents:
     # 2 - obstacle_proximity_penalty
     # 3 - energy_waste_penalty
     # 4 - collision_penalty
+    action_keys:
+      - "target_following_relevance"
+      - "obstacle_evasion_relevance"
+      - "stand_still_relevance"
+      - "go_left_relevance"
+      - "go_right_relevance"
     reward_indices: [0, 1, 2, 3, 4]
     mixture_mode: 1
     experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent, Go-Left-Agent, Go-Right-Agent]

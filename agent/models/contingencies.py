@@ -7,6 +7,7 @@ from environment.structure_env import StructureEnv
 class GazeFixationModel(Model):
     id = "GFM"
     observation_keys = ["target_offset_angle", "del_target_offset_angle"]
+    action_keys = ["rotational_velocity"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)

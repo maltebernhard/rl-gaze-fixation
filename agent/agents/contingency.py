@@ -8,10 +8,10 @@ from agent.base_model import Model
 # =============================================================================
 
 class Contingency(StructureAgent):
-    def __init__(self, base_agent, agent_config, callback, contingent_agent) -> None:
+    def __init__(self, base_agent, agent_config, contingent_agent) -> None:
         self.contingent_agent: StructureAgent = contingent_agent
         self.models = contingencies
-        super().__init__(base_agent, agent_config, callback)
+        super().__init__(base_agent, agent_config)
 
     def create_action_space(self):
         # TODO: make this more general

@@ -7,6 +7,7 @@ from environment.structure_env import StructureEnv
 class TargetFollowingObstacleEvasionStopMixtureModel(Model):
     id = "TOS"
     observation_keys = ["obstacle1_distance", "robot_target_distance"]
+    action_keys = ["relevance_target_approaching", "relevance_obstacle_evasion", "relevance_stopping"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)

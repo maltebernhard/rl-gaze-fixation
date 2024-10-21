@@ -73,6 +73,11 @@ agents:
       #- obstacle3_offset_angle
       - del_obstacle3_distance
       - obstacle3_distance
+    action_keys:
+      - target_following_relevance
+      - obstacle1_evasion_relevance
+      - obstacle2_evasion_relevance
+      - obstacle3_evasion_relevance
     mixture_mode: 1
     reward_indices: [0,2,3]
     experts: [Avoid-1-Obstacle-Agent, Avoid-2-Obstacle-Agent, Avoid-3-Obstacle-Agent, Go-Towards-Target-Agent]

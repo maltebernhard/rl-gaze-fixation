@@ -55,7 +55,9 @@ agents:
       - "obstacle2_distance"
       - "obstacle3_offset_angle"
       - "obstacle3_distance"
-    mixture_mode: 2
+    action_keys:
+      - "target_following_relevance"
+    mixture_mode: 1
     experts: [Avoid-Nearest-Obstacle-Agent, Go-Towards-Target-Agent]
     policy_type: MlpPolicy
     learning_rate: 0.001

@@ -7,6 +7,7 @@ from environment.structure_env import StructureEnv
 class AvoidNearestObstacleModel(Model):
     id = "ANO"
     observation_keys = [item for sublist in [[f"obstacle{i+1}_offset_angle", f"obstacle{i+1}_coverage"] for i in range(100)] for item in sublist]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -33,6 +34,8 @@ class AvoidNearestObstacleModel(Model):
 class AvoidObstacle1Model(Model):
     id = "A1O"
     observation_keys = [f"obstacle1_offset_angle"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
+
     def __init__(self, env: StructureEnv, action_space_dimensionality: int):
         super().__init__(env)
         self.action_space_dimensionality = action_space_dimensionality
@@ -52,6 +55,8 @@ class AvoidObstacle1Model(Model):
 class AvoidObstacle2Model(Model):
     id = "A2O"
     observation_keys = [f"obstacle2_offset_angle"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
+
     def __init__(self, env: StructureEnv, action_space_dimensionality: int):
         super().__init__(env)
         self.action_space_dimensionality = action_space_dimensionality
@@ -71,6 +76,8 @@ class AvoidObstacle2Model(Model):
 class AvoidObstacle3Model(Model):
     id = "A3O"
     observation_keys = [f"obstacle3_offset_angle"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
+    
     def __init__(self, env: StructureEnv, action_space_dimensionality: int):
         super().__init__(env)
         self.action_space_dimensionality = action_space_dimensionality
@@ -90,6 +97,7 @@ class AvoidObstacle3Model(Model):
 class KeepTargetDistanceModel(Model):
     id = "KTD"
     observation_keys = ["target_offset_angle", "del_target_offset_angle", "vel_frontal", "vel_lateral", "vel_rot"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -149,6 +157,7 @@ class KeepTargetDistanceModel(Model):
 class StandStillModel(Model):
     id = "SST"
     observation_keys = []
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -163,6 +172,7 @@ class StandStillModel(Model):
 class GoLeftModel(Model):
     id = "GLM"
     observation_keys = []
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -182,6 +192,7 @@ class GoLeftModel(Model):
 class GoRightModel(Model):
     id = "GRM"
     observation_keys = []
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -201,6 +212,7 @@ class GoRightModel(Model):
 class TowardsTargetModel(Model):
     id = "GTT"
     observation_keys = ["target_offset_angle"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)

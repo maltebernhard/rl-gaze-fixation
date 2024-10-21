@@ -8,9 +8,9 @@ import agent.models.policies as policies
 # ===================================================================================
 
 class Policy(StructureAgent):
-    def __init__(self, base_agent, agent_config, callback) -> None:
+    def __init__(self, base_agent, agent_config) -> None:
         self.models = policies
-        super().__init__(base_agent, agent_config, callback)
+        super().__init__(base_agent, agent_config)
 
     def create_action_space(self):
         if "action_space_dimensionality" in self.config.keys():

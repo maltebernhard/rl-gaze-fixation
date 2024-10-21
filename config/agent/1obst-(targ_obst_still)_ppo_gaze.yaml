@@ -54,6 +54,10 @@ agents:
       - "robot_target_distance"
       - "obstacle1_distance"
       - "obstacle1_offset_angle"
+    action_keys:
+      - "target_following_relevance"
+      - "obstacle_evasion_relevance"
+      - "stand_still_relevance"
     reward_indices: [0, 1, 2]
     mixture_mode: 1
     experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent]

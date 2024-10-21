@@ -7,6 +7,7 @@ from environment.structure_env import StructureEnv
 class TargetFollowingObstacleEvasionMixtureModel(Model):
     id = "TOM"
     observation_keys = [item for sublist in [[f"obstacle{i+1}_offset_angle", f"obstacle{i+1}_distance"] for i in range(100)] for item in sublist]
+    action_keys = ["relevance_obstacle_evasion"]
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)
@@ -36,6 +37,7 @@ class TargetFollowingObstacleEvasionMixtureModel(Model):
 class FiftyFiftyMixtureModel(Model):
     id = "55M"
     observation_keys = []
+    action_keys = []
 
     def __init__(self, env: StructureEnv):
         super().__init__(env)

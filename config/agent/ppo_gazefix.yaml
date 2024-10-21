@@ -1,6 +1,6 @@
 name: monolithic ppo with gaze fixation
 agents:
-  - id: 1
+  - id: Translational-Movement-Agent
     type: PLCY
     model_type: PPO
     reward_indices: [0,1,2,3,4]
@@ -14,6 +14,9 @@ agents:
       # - vel_rot
       # - vel_frontal
       # - vel_lateral
+    action_keys:
+      - "frontal_movement"
+      - "lateral_movement"
     action_space_dimensionality: 2
     policy_type: MlpPolicy
     learning_rate: 0.0005
@@ -23,4 +26,4 @@ agents:
   - id: 2
     type: CONT
     model_type: GFM
-    contingent_agent: 1
+    contingent_agent: Translational-Movement-Agent

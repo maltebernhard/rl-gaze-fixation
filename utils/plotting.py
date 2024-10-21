@@ -2,7 +2,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.callback import ModularAgentCallback
+from utils.callback import BaseAgentCallback, ModularAgentCallback
 
 def plot_training_progress_modular(callbacks: List[ModularAgentCallback]):
     # Ensure we have at least one callback to plot
@@ -24,26 +24,42 @@ def plot_training_progress_modular(callbacks: List[ModularAgentCallback]):
     plt.legend()
     plt.show()
 
-def plot_training_progress_multiple(callbacks: List[ModularAgentCallback], savepath = None):
+def plot_subagent_training_progress(callbacks: List[ModularAgentCallback], show=True, savefolder=None):
+    # Plot rewards for each callback
+    for callback in callbacks:
+        plt.plot(callback.episode_rewards, label=callback.agent_name)
+    # Add labels and title
+    plt.xlabel('Episodes')
+    plt.ylabel('Reward')
+    plt.title(f'Training Progress for Sub-Agents')
+    plt.legend()
+    plt.grid()
+    if show:
+        plt.show()
+    if savefolder is not None:
+        plt.savefig(f"{savefolder}/training_progress_sub-agents.png")
+    plt.close()
+
+def plot_training_progress_multiple(callbacks: List[BaseAgentCallback], savepath = None):
     # Ensure we have at least one callback to plot
     if not callbacks:
         print("No callbacks to plot.")
         return
 
     # Plot rewards for each callback
-    callback_dict: Dict[str,List[ModularAgentCallback]] = {}
+    callback_dict: Dict[str,List[BaseAgentCallback]] = {}
     for callback in callbacks:
-        if callback.model_name not in callback_dict.keys():
-            callback_dict[callback.model_name] = [callback]
+        if callback.agent_name in callback_dict:
+            callback_dict[callback.agent_name].append(callback)
         else:
-            callback_dict[callback.model_name].append(callback)
+            callback_dict[callback.agent_name] = [callback]
     
     colors = plt.cm.get_cmap('tab10', len(callback_dict))
     for idx, (model_name, model_callbacks) in enumerate(callback_dict.items()):
         color = colors(idx)
         all_rewards = []
         for callback in model_callbacks:
-            all_rewards.append(callback.episode_rewards['base'])
+            all_rewards.append(np.sum(np.array(callback.episode_rewards), axis=1))
         
         # Calculate mean and standard deviation
         mean_rewards = [sum(x) / len(x) for x in zip(*all_rewards)]
@@ -66,6 +82,13 @@ def plot_training_progress_multiple(callbacks: List[ModularAgentCallback], savep
     else:
         plt.savefig(savepath)
     plt.close()
+
+def log_runs(agent, num_logs: int = 20, env_seed: int = 5):
+    logs = []
+    for i in range(num_logs):
+        log = agent.run(timesteps=100000, env_seed=env_seed+i, render=False, prints=False)
+        logs.append(log)
+    return logs
 
 def plot_actions_observations(agent, num_logs: int = 20, env_seed: int = 5, savepath = None):
     logs = []

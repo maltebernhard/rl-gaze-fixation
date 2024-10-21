@@ -48,6 +48,10 @@ agents:
       - obstacle2_distance
       - obstacle3_offset_angle
       - obstacle3_distance
+    action_keys:
+      - frontal_movement
+      - lateral_movement
+      - rotational_movement
     reward_indices: [0, 1, 2]
     action_space_dimensionality: 3
     policy_type: MlpPolicy

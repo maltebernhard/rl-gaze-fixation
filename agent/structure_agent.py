@@ -1,7 +1,5 @@
 from abc import abstractmethod
 from datetime import datetime
-import types
-from typing import List, Tuple, Type
 import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -14,7 +12,7 @@ from environment.structure_env import StructureEnv
 # ===========================================================================================
 
 class StructureAgent:
-    def __init__(self, base_agent, agent_config: dict, callback: ModularAgentCallback) -> None:
+    def __init__(self, base_agent, agent_config: dict) -> None:
         self.id = agent_config["id"]
         self.config = agent_config
         self.env: StructureEnv = gym.make(
@@ -24,7 +22,7 @@ class StructureAgent:
             reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0])
         )
         self.set_model()
-        self.set_callback(callback)
+        self.callback = ModularAgentCallback(model_name=self.id, observation_keys=self.observation_keys, action_keys=self.action_keys)
 
     def run(self, timesteps = 0, env_seed = None, render = True, prints = False):
         log = {"actions": [], "observations": [], "rewards": []}
@@ -50,7 +48,8 @@ class StructureAgent:
                 self.env.render()
         self.env.close()
         obs, info = self.env.reset()
-        print(f"Episode finished with total reward {total_reward}")
+        if prints or render:
+            print(f"Episode finished with total reward {total_reward}")
         return log
 
     def learn(self, total_timesteps) -> None:
@@ -80,14 +79,8 @@ class StructureAgent:
             action = self.model.predict(observation[self.observation_indices])[0]
         return self.transform_action(action, observation), []
 
-    def set_callback(self, callback=None) -> None:
-        if callback is None:
-            self.callback = ModularAgentCallback(self.model_name)
-        else:
-            self.callback = callback
-
     def set_model(self):
-        model_class, model_args, self.observation_keys = self.get_model_class()
+        model_class, model_args, self.observation_keys, self.action_keys = self.get_model_class()
         self.env.unwrapped.create_observation_space(self.observation_keys)
         self.model: Model = model_class(**model_args)
         self.model_name = self.config["model_type"]
@@ -104,6 +97,7 @@ class StructureAgent:
                 "seed": self.config["seed"]
             }
             observation_keys = self.config["observation_keys"]
+            action_keys = self.config["action_keys"]
         else:
             model_class = None
             model_args = {"env": self.env}
@@ -117,7 +111,8 @@ class StructureAgent:
             if model_class is None:
                 raise ValueError(f"Model type {self.config['model_type']} not supported for Policy Agent")
             observation_keys = model_class.observation_keys
-        return model_class, model_args, observation_keys
+            action_keys = model_class.action_keys
+        return model_class, model_args, observation_keys, action_keys
     
     @abstractmethod
     def create_action_space(self):

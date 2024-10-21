@@ -7,7 +7,6 @@ import networkx as nx
 from typing import Dict, List, Tuple
 from stable_baselines3.common.base_class import BaseAlgorithm
 import wandb
-from wandb.integration.sb3 import WandbCallback
 import yaml
 
 from agent.structure_agent import StructureAgent
@@ -15,8 +14,8 @@ from agent.agents.contingency import Contingency
 from agent.agents.mixture import MixtureOfExperts
 from agent.agents.mix2re import MixtureOfTwoExperts
 from agent.agents.policy import Policy
-from utils.callback import ModularAgentCallback
-from utils.plotting import plot_actions_observations
+from utils.callback import BaseAgentCallback
+from utils.plotting import plot_actions_observations, plot_subagent_training_progress
 from utils.user_interface import prompt_folder_selection
 from tqdm import tqdm
 
@@ -28,9 +27,9 @@ class BaseAgent:
         self.env_config = env_config
         self.make_base_env(env_config)
 
-        self.callback = ModularAgentCallback(model_name=self.agent_config["name"])
         self.timestamp = datetime.today().strftime('%Y-%m-%d_%H-%M')
         self.name = self.agent_config["name"].replace(" ", "-")
+        self.callback = BaseAgentCallback(self.name, observation_keys=list(self.observations.keys()))
         self.parse_agents()
         self.training = False
         if folder is None:
@@ -51,13 +50,14 @@ class BaseAgent:
         with open(folder + 'agent_config.yaml', 'w') as file:
             yaml.dump(self.agent_config, file, default_flow_style=False)
         # Convert numpy arrays to lists before saving
-        episode_rewards_serializable = {k: [arr.tolist() for arr in v] for k, v in self.callback.episode_rewards.items()}
+        episode_rewards_serializable = {"base": [arr.tolist() for arr in self.callback.episode_rewards]}
+        for agent in self.trainable_agents:
+            episode_rewards_serializable[agent.id] = [float(reward) for reward in agent.callback.episode_rewards]
         with open(folder + 'episode_rewards.yaml', 'w') as file:
             yaml.dump(episode_rewards_serializable, file, default_flow_style=False)
         self.callback.plot_training_progress(False, folder)
-        self.callback.plot_subagent_training_progress(False, folder)
-        trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
-        for agent in trainable_agents:
+        plot_subagent_training_progress([agent.callback for agent in self.trainable_agents], False, folder)
+        for agent in self.trainable_agents:
             plot_actions_observations(agent, num_logs=20, env_seed=5, savepath=folder)
 
     @classmethod
@@ -78,27 +78,28 @@ class BaseAgent:
             agent.load(folder + filename)
         if 'episode_rewards.yaml' in os.listdir(folder):
             with open(folder + 'episode_rewards.yaml', 'r') as file:
-                base_agent.callback.episode_rewards = yaml.load(file, Loader=yaml.SafeLoader)
-            # Convert lists back to numpy arrays
-            base_agent.callback.episode_rewards = {k: [np.array(arr) for arr in v] for k, v in base_agent.callback.episode_rewards.items()}
+                reward_dict = yaml.load(file, Loader=yaml.SafeLoader)
+                base_agent.callback.episode_rewards = np.array(reward_dict["base"])
+                for agent in base_agent.trainable_agents:
+                    agent.callback.episode_rewards = np.array(reward_dict[agent.id])
         base_agent.folder = folder
         return base_agent
 
     def learn(self, total_timesteps: int, timesteps_per_run: int, save=True, plot=False) -> None:
-        self.init_wandb_run(project_name="TestProject", run_name=f"{self.timestamp}_{self.name}", group=None, tags=["test"])
+        self.init_wandb_run(project_name="TestProject", run_name=f"{self.timestamp}_{self.name}", group=self.name, tags=["test"])
         timesteps_trained: int = 0
-        trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
+        
         total_runs = int(np.ceil(total_timesteps / timesteps_per_run))
         run: int = 0
-        if len(trainable_agents) > 1:
+        if len(self.trainable_agents) > 1:
             progress_bar = tqdm(total=total_runs+1, desc="Training Progress", position=1, leave=True, dynamic_ncols=True)
         self.training = True
         try:
-            if len(trainable_agents) == 1:
-                self.learn_agent(trainable_agents[0].id, total_timesteps)
+            if len(self.trainable_agents) == 1:
+                self.learn_agent(self.trainable_agents[0].id, total_timesteps)
             else:
                 while timesteps_trained < total_timesteps:
-                    for agent in trainable_agents:
+                    for agent in self.trainable_agents:
                         run += 1
                         # test if the agent's model is a subclass of stable_baselines3.BaseAlgorithm
                         tqdm.write(f"{agent.id}: Training run {run} / {total_runs}")
@@ -111,17 +112,19 @@ class BaseAgent:
         except Exception as e:
             raise e
         self.training = False
-        if len(trainable_agents) > 1:
+        if len(self.trainable_agents) > 1:
             progress_bar.close()
         if save:
             self.save()
         if plot:
             self.callback.plot_training_progress(True)
-            self.callback.plot_subagent_training_progress(True)
-            for agent in trainable_agents:
-                plot_actions_observations(agent, num_logs=20, env_seed=5) 
+            plot_subagent_training_progress(self.trainable_agents)
+            for agent in self.trainable_agents:
+                plot_actions_observations(agent, num_logs=20, env_seed=5)
+        self.callback.end_training()
+        self.finish_wandb_run()
 
-    def run(self, prints = False, timesteps = 0, env_seed = None, video_path = None) -> None:
+    def run(self, timesteps = 0, env_seed = None, prints = False, render = True, video_path = None) -> None:
         total_reward = 0
         step = 0
         obs, info = self.reset(seed=env_seed, video_path=video_path)
@@ -137,14 +140,15 @@ class BaseAgent:
                 print(f'Reward:      {reward}')
             total_reward += reward
             step += 1
-            self.render()
+            if render:
+                self.render()
         self.close()
         obs, info = self.reset()
-        print(f"Episode finished with total reward {total_reward}")
+        if prints or render:
+            print(f"Episode finished with total reward {total_reward}")
 
     def learn_agent(self, agent: int, timesteps: int, plot=False) -> None:
         if agent in self.agents.keys():
-            self.callback.set_submodel_name(agent)
             self.agents[agent].learn(timesteps)
             if plot:
                 self.callback.plot_training_progress()
@@ -165,14 +169,12 @@ class BaseAgent:
                 self.agents[agent_config["id"]] = Policy(
                     base_agent = self,
                     agent_config = agent_config,
-                    callback = self.callback
                 )
                 print(f"Policy agent {agent_config['id']} created")
             elif agent_config["type"] == "CONT":
                 self.agents[agent_config["id"]] = Contingency(
                     base_agent = self,
                     agent_config = agent_config,
-                    callback = self.callback,
                     contingent_agent = self.agents[agent_config["contingent_agent"]]
                 )
                 print(f"Contingency agent {agent_config['id']} created")
@@ -180,7 +182,6 @@ class BaseAgent:
                 self.agents[agent_config["id"]] = MixtureOfExperts(
                     base_agent = self,
                     agent_config = agent_config,
-                    callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
                 print(f"Mixture-of-Experts agent {agent_config['id']} created")
@@ -188,7 +189,6 @@ class BaseAgent:
                 self.agents[agent_config["id"]] = MixtureOfTwoExperts(
                     base_agent = self,
                     agent_config = agent_config,
-                    callback = self.callback,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
                 print(f"Mixture-of-Two-Experts agent {agent_config['id']} created")
@@ -197,6 +197,7 @@ class BaseAgent:
         self.set_last_agent()
         for agent in self.agents.values():
             agent.env.set_base_agent(self)
+        self.trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
 
     def make_base_env(self, env_config: dict):
         self.base_env = gym.make(
@@ -233,21 +234,21 @@ class BaseAgent:
             tags=tags,
         )
         self.callback.run = self.wandb_run
+        for agent in self.agents.values():
+            agent.callback.run = self.wandb_run
 
-    # def set_wandb_callback(self):
-    #     for agent in self.agents.values():
-    #         agent.callback = WandbCallback(
-    #             gradient_save_freq=100,
-    #             model_save_path=None,
-    #             verbose=2,
-    #         )
+    def finish_wandb_run(self) -> None:
+        # TODO: log model
+        self.wandb_run.finish()
+        self.callback.run = None
 
     # =========================== env control ===================================
 
     def act(self):
         action = self.predict(self.last_observation)[0]
         self.last_observation, rewards, done, truncated, info = self.step(action)
-        self.callback.current_base_episode_rewards += rewards
+        if self.training:
+            self.callback.log(action, self.last_observation, rewards, done)
         return self.last_observation, rewards, done, truncated, info
 
     def step(self, action: np.ndarray):
