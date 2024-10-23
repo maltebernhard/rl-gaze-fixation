@@ -19,7 +19,7 @@ agents:
       - "lateral_movement"
     action_space_dimensionality: 2
     policy_type: MlpPolicy
-    learning_rate: 0.0005
+    learning_rate: 0.0003
     verbose: 1
     seed: 1
 

@@ -196,7 +196,7 @@ class BaseAgent:
                 raise ValueError(f"Unknown model type: {agent_config['type']}")  
         self.set_last_agent()
         for agent in self.agents.values():
-            agent.env.set_base_agent(self)
+            agent.env.unwrapped.set_base_agent(self)
         self.trainable_agents = [agent for agent in self.agents.values() if isinstance(agent.model, BaseAlgorithm)]
 
     def make_base_env(self, env_config: dict):

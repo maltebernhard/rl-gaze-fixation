@@ -6,6 +6,7 @@ from environment.structure_env import StructureEnv
 
 class AvoidNearestObstacleModel(Model):
     id = "ANO"
+    # TODO: change coverage to distance
     observation_keys = [item for sublist in [[f"obstacle{i+1}_offset_angle", f"obstacle{i+1}_coverage"] for i in range(100)] for item in sublist]
     action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
@@ -30,64 +31,27 @@ class AvoidNearestObstacleModel(Model):
         return action, None
     
 # =======================================================================================================
-    
-class AvoidObstacle1Model(Model):
-    id = "A1O"
-    observation_keys = [f"obstacle1_offset_angle"]
+
+class AvoidObstacleModel(Model):
+    id = "AOM"
+    observation_keys = [f"obstacle1_offset_angle", f"obstacle1_distance"]
     action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
 
-    def __init__(self, env: StructureEnv, action_space_dimensionality: int):
+    def __init__(self, env: StructureEnv):
         super().__init__(env)
-        self.action_space_dimensionality = action_space_dimensionality
-    def predict(self, state, eps = 0.01, deterministic: bool = True):                
-        offset_angle = state[0]
-        # create a vector of length one in opposite direction of the obstacle
-        if self.action_space_dimensionality == 3:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)] + [np.random.uniform(-1,1)])
-        elif self.action_space_dimensionality == 2:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)])
-        else:
-            raise ValueError("Invalid action space dimensionality")
-        return action, None
-    
-# =======================================================================================================
-    
-class AvoidObstacle2Model(Model):
-    id = "A2O"
-    observation_keys = [f"obstacle2_offset_angle"]
-    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
+        self.action_space_dimensionality = self.env.action_space.shape[0]
+        self.max_vel = env.unwrapped.base_env_config["robot_max_vel"]
+        self.timestep = env.unwrapped.base_env_config["timestep"]
+        self.evasion_distance_margin = 5.0
 
-    def __init__(self, env: StructureEnv, action_space_dimensionality: int):
-        super().__init__(env)
-        self.action_space_dimensionality = action_space_dimensionality
-    def predict(self, state, eps = 0.01, deterministic: bool = True):                
+    def predict(self, state, eps = 0.01, deterministic: bool = True):
         offset_angle = state[0]
+        vel = max(self.evasion_distance_margin - state[1], 0.0) / self.evasion_distance_margin
         # create a vector of length one in opposite direction of the obstacle
-        if self.action_space_dimensionality == 3:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)] + [np.random.uniform(-1,1)])
-        elif self.action_space_dimensionality == 2:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)])
-        else:
-            raise ValueError("Invalid action space dimensionality")
-        return action, None
-    
-# =======================================================================================================
-
-class AvoidObstacle3Model(Model):
-    id = "A3O"
-    observation_keys = [f"obstacle3_offset_angle"]
-    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
-    
-    def __init__(self, env: StructureEnv, action_space_dimensionality: int):
-        super().__init__(env)
-        self.action_space_dimensionality = action_space_dimensionality
-    def predict(self, state, eps = 0.01, deterministic: bool = True):                
-        offset_angle = state[0]
-        # create a vector of length one in opposite direction of the obstacle
-        if self.action_space_dimensionality == 3:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)] + [np.random.uniform(-1,1)])
-        elif self.action_space_dimensionality == 2:
-            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)])
+        if self.action_space_dimensionality == 2:
+            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)]) * vel
+        elif self.action_space_dimensionality == 3:
+            action = np.array([-np.cos(offset_angle), -np.sin(offset_angle)] * vel + [np.random.uniform(-1,1)])
         else:
             raise ValueError("Invalid action space dimensionality")
         return action, None
@@ -231,3 +195,25 @@ class TowardsTargetModel(Model):
     
 # =======================================================================================================
 
+class ToTargetModel(Model):
+    id = "TTM"
+    observation_keys = ["target_offset_angle", "robot_target_distance"]
+    action_keys = ["frontal movement", "lateral movement", "rotational_movement"]
+
+    def __init__(self, env: StructureEnv):
+        super().__init__(env)
+        self.action_space_dimensionality = self.env.action_space.shape[0]
+        self.max_vel = env.unwrapped.base_env_config["robot_max_vel"]
+        self.timestep = env.unwrapped.base_env_config["timestep"]
+
+    def predict(self, state, eps = 0.01, deterministic: bool = True):
+        offset_angle = state[0]
+        vel = min(state[1] * self.max_vel * self.timestep, 1.0)
+        # generate unit length vector in the direction of the target
+        if self.action_space_dimensionality == 2:
+            action = np.array([np.cos(offset_angle), np.sin(offset_angle)]) * vel
+        elif self.action_space_dimensionality == 3:
+            action = np.array([np.cos(offset_angle), np.sin(offset_angle)] * vel + [np.random.uniform(-1,1)])
+        else:
+            raise ValueError("Invalid action space dimensionality")
+        return action, None

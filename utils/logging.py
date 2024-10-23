@@ -1,3 +1,4 @@
+import copy
 import os
 import gymnasium as gym
 from datetime import datetime
@@ -6,8 +7,22 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3 import PPO
 import wandb
+import yaml
 
 from agent.base_agent import BaseAgent
+
+def create_seeded_agents(agent_config_path, num_agents, env_config_path):
+    with open(env_config_path) as file:
+        env_config = yaml.load(file, Loader=yaml.FullLoader)
+    with open(agent_config_path) as file:
+        agent_config: dict = yaml.load(file, Loader=yaml.FullLoader)
+    agent_configs = [copy.deepcopy(agent_config) for _ in range(num_agents)]
+    for i in range(num_agents):
+        for j in range(len(agent_configs[i]["agents"])):
+            if agent_configs[i]["agents"][j]["model_type"] == "PPO":
+                agent_configs[i]["agents"][j]["seed"] += i
+    base_agents = [BaseAgent(agent_configs[i], env_config) for i in range(num_agents)]
+    return base_agents
 
 def training_run(project_name, run_name, agent_config, env_config, training_timesteps, record_video=False):
     run = create_run(project_name=project_name, model_config=agent_config, name=run_name, group=run_name)

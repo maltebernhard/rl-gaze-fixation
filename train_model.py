@@ -1,31 +1,23 @@
-import yaml
+from typing import List
 from agent.base_agent import BaseAgent
+from utils.logging import create_seeded_agents
+
+# ==============================================================================
+num_agents = 10
+
+env_path = "./config/env/one_obstacle.yaml"
 
 #agent_path = "./config/agent/1obst-(targ_obst_still_ppo)_ppo_gaze.yaml"
 #agent_path = "./config/agent/1obst-(targ_obst_still)_ppo_gaze.yaml"
-#agent_path = "./config/agent/1obst-(targ_obst_still_left_right)_ppo_gaze.yaml"
-#agent_path = "./config/agent/ppo_gazefix.yaml"
+agent_path1 = "./config/agent/1obst-(targ_obst_still_left_right)_ppo_gaze.yaml"
+agent_path2 = "./config/agent/ppo_gazefix.yaml"
+agent_path3 = "./config/agent/1obst-(targ_obst_left)_ppo_gaze.yaml"
 
-with open("./config/env/one_obstacle.yaml") as file:
-    env_config = yaml.load(file, Loader=yaml.FullLoader)
-with open("./config/agent/1obst-(targ_obst_still_left_right)_ppo_gaze.yaml") as file:
-    model_config1: dict = yaml.load(file, Loader=yaml.FullLoader)
-with open("./config/agent/ppo_gazefix.yaml") as file:
-    model_config2: dict = yaml.load(file, Loader=yaml.FullLoader)
+base_agents_1: List[BaseAgent] = create_seeded_agents(agent_path3, num_agents, env_path)
+base_agents_2: List[BaseAgent] = create_seeded_agents(agent_path2, num_agents, env_path)
+for i in range(num_agents):
+    base_agents_1[i].learn(total_timesteps=200000, timesteps_per_run=2048, save=True, plot=False)
+    base_agents_2[i].learn(total_timesteps=200000, timesteps_per_run=2048, save=True, plot=False)
 
-model_configs1 = [model_config1.copy() for _ in range(10)]
-model_configs2 = [model_config2.copy() for _ in range(10)]
-
-for i in range(10):
-    for j in range(10):
-        if model_configs1[i]["agents"][j]["model_type"] == "PPO":
-            model_configs1[i]["agents"][j]["seed"] = i
-        if model_configs1[j]["agents"][j]["model_type"] == "PPO":
-            model_configs1[j]["agents"][j]["seed"] = i
-
-base_agents_1 = [BaseAgent(model_configs1[i], env_config) for i in range(10)]
-base_agents_2 = [BaseAgent(model_configs2[i], env_config) for i in range(10)]
-
-for i in range(10):
-    base_agents_1[i].learn(200000, 2048, save=True, plot=False)
-    base_agents_2[i].learn(200000, 2048, save=True, plot=False)
+# base_agent = create_seeded_agents(agent_path3, 1, env_path)[0]
+# base_agent.learn(total_timesteps=200000, timesteps_per_run=2048, save=True, plot=False)
