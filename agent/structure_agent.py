@@ -13,16 +13,20 @@ from environment.structure_env import StructureEnv
 
 class StructureAgent:
     def __init__(self, base_agent, agent_config: dict) -> None:
+        self.base_agent = base_agent
         self.id = agent_config["id"]
         self.config = agent_config
+        self.get_model_class()
+
+    def initialize(self):
         self.env: StructureEnv = gym.make(
             id='StructureEnv',
-            base_agent = base_agent,
+            base_agent = self.base_agent,
             action_space = self.create_action_space(),
-            reward_indices = agent_config["reward_indices"] if "reward_indices" in agent_config else np.array([0])
+            reward_indices = self.config["reward_indices"] if "reward_indices" in self.config else np.array([0])
         )
         self.set_model()
-        self.callback = ModularAgentCallback(model_name=self.id, observation_keys=self.observation_keys, action_keys=self.action_keys)
+        self.callback = ModularAgentCallback(model_name=self.id, observation_keys=self.observation_keys, action_keys=self.model_action_keys)
 
     def run(self, timesteps = 0, env_seed = None, render = True, prints = False):
         log = {"actions": [], "observations": [], "rewards": []}
@@ -80,15 +84,36 @@ class StructureAgent:
         return self.transform_action(action, observation), []
 
     def set_model(self):
-        model_class, model_args, self.observation_keys, self.action_keys = self.get_model_class()
         self.env.unwrapped.create_observation_space(self.observation_keys)
-        self.model: Model = model_class(**model_args)
+        self.model: Model = self.model_class(**self.get_model_args())
         self.model_name = self.config["model_type"]
         self.observation_indices = self.env.get_wrapper_attr("observation_indices")
 
     def get_model_class(self):
         if self.config["model_type"] == "PPO":
-            model_class = PPO
+            self.model_class = PPO
+            self.observation_keys = self.config["observation_keys"]
+            self.output_action_keys = self.config["action_keys"]
+            if self.config['type'] == "PLCY":
+                self.model_action_keys = self.config["action_keys"]
+        else:
+            model_class = None
+            for classname in dir(self.models):
+                clss = getattr(self.models, classname)
+                if isinstance(clss, type):
+                    if issubclass(clss, Model) and clss is not Model and clss.id == self.config["model_type"]:
+                        model_class = clss
+                        break
+            if model_class is None:
+                raise ValueError(f"Model type {self.config['model_type']} not supported for {self.id}")
+            self.model_class = model_class
+            self.observation_keys = model_class.observation_keys
+            self.output_action_keys = model_class.action_keys
+            if self.config['type'] == "PLCY":
+                self.model_action_keys = model_class.action_keys
+
+    def get_model_args(self):
+        if self.config["model_type"] == "PPO":
             model_args = {
                 "policy": self.config["policy_type"],
                 "env": self.env,
@@ -96,23 +121,9 @@ class StructureAgent:
                 "verbose": 1,
                 "seed": self.config["seed"]
             }
-            observation_keys = self.config["observation_keys"]
-            action_keys = self.config["action_keys"]
         else:
-            model_class = None
             model_args = {"env": self.env}
-            for submodule in [policies, contingencies, mixtures, mix2res]:
-                for classname in dir(submodule):
-                    clss = getattr(submodule, classname)
-                    if isinstance(clss, type):
-                        if issubclass(clss, Model) and clss is not Model and clss.id == self.config["model_type"]:
-                            model_class = clss
-                            break
-            if model_class is None:
-                raise ValueError(f"Model type {self.config['model_type']} not supported for Policy Agent")
-            observation_keys = model_class.observation_keys
-            action_keys = model_class.action_keys
-        return model_class, model_args, observation_keys, action_keys
+        return model_args
     
     @abstractmethod
     def create_action_space(self):

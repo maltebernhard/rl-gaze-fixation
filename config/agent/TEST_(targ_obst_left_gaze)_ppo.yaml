@@ -22,38 +22,55 @@
 # - "obstacleN_coverage"
 # - "obstacleN_distance"
 
+# Reward Indices:
+# - 0 - target proximity reward
+# - 1 - time penalty
+# - 2 - obstacle proximity penalty
+# - 3 - energy waste penalty
+# - 4 - collision penalty
+
 # Agent Config Dict Structure:
 # - id: <str>
 #   - type: <str>
 #   - model_type: <str>
 #   - observation_keys: <list>
 #     (only if model is learnable)
+#   - reward_indices: <list>
 #   - model specific params
 
 name: ppo policy mixture with gaze fixation
 agents:
-  - id: Go-Towards-Target-Agent
+  - id: Go-Towards-Target
     type: PLCY
     model_type: GTT
-    action_space_dimensionality: 2
 
-  - id: Avoid-Nearest-Obstacle-Agent
+  - id: Avoid-Nearest-Obstacle
     type: PLCY
     model_type: ANO
-    action_space_dimensionality: 2
 
-  - id: Stand-Still-Agent
+  - id: Go-Left
     type: PLCY
-    model_type: SST
-    action_space_dimensionality: 2
+    model_type: GLM
 
-  - id: Mixture-Agent
+  - id: Gaze-Fixation
+    type: PLCY
+    model_type: NGFM
+
+  - id: Mixture
     type: MXTR
-    model_type: TOS
+    model_type: PPO
+    observation_keys:
+      - robot_target_distance
+      - obstacle1_distance
+      - obstacle1_offset_angle
+    action_keys:
+      - "frontal_movement"
+      - "lateral_movement"
+      - "rotational_movement"
+    reward_indices: [0]
     mixture_mode: 1
-    experts: [Go-Towards-Target-Agent, Avoid-Nearest-Obstacle-Agent, Stand-Still-Agent]
-
-  - id: Gaze-Fixation-Agent
-    type: CONT
-    model_type: GFM
-    contingent_agent: Mixture-Agent
+    experts: [Go-Towards-Target, Avoid-Nearest-Obstacle, Go-Left, Gaze-Fixation]
+    policy_type: MlpPolicy
+    learning_rate: 0.0003
+    verbose: 1
+    seed: 10

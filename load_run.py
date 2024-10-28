@@ -4,6 +4,6 @@ from utils.plotting import plot_actions_observations
 
 agent = BaseAgent.load()
 
-agent.run(timesteps=1000, env_seed=5, prints=True)
+agent.visualize_action_field()
 
-plot_actions_observations(agent.agents["Mixture-Agent"], num_logs=20, env_seed=5, savepath=None)
+#agent.run_agent("Mixture", timesteps=1000, env_seed=12, prints=True)

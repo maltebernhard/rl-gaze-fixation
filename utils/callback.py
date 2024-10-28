@@ -100,8 +100,8 @@ class ModularAgentCallback(BaseCallback):
         done = self.locals['dones'][0]
 
         log_data = {f"{self.agent_name}_reward": reward}
-        log_data.update({f"base_{self.action_keys[i]}": action[i] for i in range(len(action))})
-        log_data.update({f"base_{self.observation_keys[i]}": observation[i] for i in range(len(observation))})
+        log_data.update({f"{self.agent_name}_{self.action_keys[i]}": action[i] for i in range(len(action))})
+        log_data.update({f"{self.agent_name}_{self.observation_keys[i]}": observation[i] for i in range(len(observation))})
         self.run.log(log_data)
 
         # Check if the episode has ended

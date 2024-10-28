@@ -247,6 +247,20 @@ class GazeFixEnv(BaseEnv):
     
     # -------------------------------------- helpers -------------------------------------------
 
+    def get_observation_field(self, n = 20):
+        observation_field = [[None]*n for _ in range(n)]
+        x_positions = np.linspace(-self.world_size/4, 3*self.world_size/4, n)
+        y_positions = np.linspace(-self.world_size / 2, self.world_size / 2, n)
+        for i, x in enumerate(x_positions):
+            for j, y in enumerate(y_positions):
+                self.set_robot_position(np.array([x,y]), np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]))
+                observation_field[i][j] = np.array(list(self.get_observation().values()))
+        return observation_field
+
+    def set_robot_position(self, pos, orientation):
+        self.robot.pos = pos
+        self.robot.orientation = orientation
+
     def limit_action(self, action):
         translation, rotation = action[:2], action[2:]
         translation_abs = np.linalg.norm(translation)
@@ -403,8 +417,20 @@ class GazeFixEnv(BaseEnv):
             if self.record_video:
                 self.video = vidmaker.Video(self.video_path, fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
         
+        self.draw_env()
+
+        # draw an arrow for the robot's action
+        self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])), self.robot.size*2, RED)
+
+        self.display_info()
+        if self.record_video:
+            self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
+        pygame.display.flip()
+        self.rt_clock.tick(1/self.timestep)
+
+    def draw_env(self, reward_render_mode = 1):
         # Fill the screen
-        if self.reward_render_mode == 1:
+        if reward_render_mode == 1:
             self.viewer.fill(GREY)
             self.draw_fov()
         else:
@@ -412,7 +438,7 @@ class GazeFixEnv(BaseEnv):
             pygame.surfarray.blit_array(self.viewer, color_map)
 
         self.render_grid()
-        if self.reward_render_mode == 1 and self.reward_margin < 20.0:
+        if reward_render_mode == 1 and self.reward_margin < 20.0:
             # TODO: deal better with reward and penalty margins
             # draw target reward margin
             self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
@@ -430,16 +456,32 @@ class GazeFixEnv(BaseEnv):
             for o in self.obstacles:
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
                 # TODO: deal better with reward and penalty margins
-                if self.reward_render_mode == 1 and self.penalty_margin < 20.0:
+                if reward_render_mode == 1 and self.penalty_margin < 20.0:
                     self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
-        # draw an arrow for the robot's action
-        pygame.draw.line(self.viewer, RED, self.pxl_coordinates(self.robot.pos), self.pxl_coordinates(self.polar_point(self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])))))
 
-        self.display_info()
-        if self.record_video:
-            self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
-        pygame.display.flip()
-        self.rt_clock.tick(1/self.timestep)
+    def draw_action_field(self, action_field, savepath=None):
+        if self.viewer is None:
+            self.viewer = pygame.display.set_mode((self.screen_size, self.screen_size))
+        self.set_robot_position(np.array([self.world_size/4,0.0]), 0.0)
+        self.draw_env(reward_render_mode = 2)
+        x_positions = np.linspace(-self.world_size/4, 3*self.world_size/4, len(action_field))
+        y_positions = np.linspace(-self.world_size / 2, self.world_size / 2, len(action_field[0]))
+        for i in range(len(action_field)):
+            for j in range(len(action_field[0])):
+                action = action_field[i][j]
+                self.draw_arrow((x_positions[i],y_positions[j]), np.arctan2(self.target.pos[1]-y_positions[j], self.target.pos[0]-x_positions[i]) + np.arctan2(action[1],action[0]), self.robot.size*5*np.linalg.norm(action[:2]), 1*self.robot.size, BLACK)
+        if savepath is not None:
+            pygame.image.save(self.viewer, savepath + "/action_vector_field.png")
+        else:
+            pygame.display.flip()
+    
+    def draw_arrow(self, pos, angle, length, side_length, color):
+        end_point = self.polar_point(angle, length, pos)
+        tip_point_1 = self.polar_point(self.normalize_angle(angle+3*np.pi/4), side_length, end_point)
+        tip_point_2 = self.polar_point(self.normalize_angle(angle-3*np.pi/4), side_length, end_point)
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2))
 
     def transparent_circle(self, pos, radius, color):
         target_rect = pygame.Rect(self.pxl_coordinates(pos), (0, 0)).inflate((radius*2*self.scale, radius*2*self.scale))
@@ -466,8 +508,10 @@ class GazeFixEnv(BaseEnv):
             right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-3*np.pi/4, self.world_size))
             pygame.draw.polygon(self.viewer, GREY, [robot_point, left_angle, left_corner, right_corner, right_angle])
 
-    def polar_point(self, angle, distance):
-        return self.robot.pos[0] + distance * math.cos(angle), self.robot.pos[1] + distance * math.sin(angle)
+    def polar_point(self, angle, distance, start_pos = None):
+        if start_pos is None:
+            start_pos = self.robot.pos
+        return start_pos[0] + distance * math.cos(angle), start_pos[1] + distance * math.sin(angle)
     
     def display_info(self):
         font = pygame.font.Font(None, 24)

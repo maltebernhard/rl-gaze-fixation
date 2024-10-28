@@ -43,6 +43,7 @@ class StructureEnv(gym.Env):
     def transform_action(self, action):
         raise NotImplementedError
     
+    # TODO: move this into structure agent and pass observation_space to env constructor
     def create_observation_space(self, observation_keys):
         if observation_keys is None:
             # use all available observations

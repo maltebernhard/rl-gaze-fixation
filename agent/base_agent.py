@@ -9,11 +9,9 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 import wandb
 import yaml
 
+from agent.agents.mixture_agent import MixtureAgent
+from agent.agents.policy_agent import PolicyAgent
 from agent.structure_agent import StructureAgent
-from agent.agents.contingency import Contingency
-from agent.agents.mixture import MixtureOfExperts
-from agent.agents.mix2re import MixtureOfTwoExperts
-from agent.agents.policy import Policy
 from utils.callback import BaseAgentCallback
 from utils.plotting import plot_actions_observations, plot_subagent_training_progress
 from utils.user_interface import prompt_folder_selection
@@ -59,6 +57,7 @@ class BaseAgent:
         plot_subagent_training_progress([agent.callback for agent in self.trainable_agents], False, folder)
         for agent in self.trainable_agents:
             plot_actions_observations(agent, num_logs=20, env_seed=5, savepath=folder)
+        self.visualize_action_field()
 
     @classmethod
     def load(self, folder = None, new_learning_rate = None):
@@ -166,32 +165,18 @@ class BaseAgent:
         self.agents: dict[int, StructureAgent] = {}
         for agent_config in agents_config:
             if agent_config["type"] == "PLCY":
-                self.agents[agent_config["id"]] = Policy(
+                self.agents[agent_config["id"]] = PolicyAgent(
                     base_agent = self,
                     agent_config = agent_config,
                 )
                 print(f"Policy agent {agent_config['id']} created")
-            elif agent_config["type"] == "CONT":
-                self.agents[agent_config["id"]] = Contingency(
-                    base_agent = self,
-                    agent_config = agent_config,
-                    contingent_agent = self.agents[agent_config["contingent_agent"]]
-                )
-                print(f"Contingency agent {agent_config['id']} created")
             elif agent_config["type"] == "MXTR":
-                self.agents[agent_config["id"]] = MixtureOfExperts(
+                self.agents[agent_config["id"]] = MixtureAgent(
                     base_agent = self,
                     agent_config = agent_config,
                     experts = [self.agents[expert] for expert in agent_config["experts"]]
                 )
-                print(f"Mixture-of-Experts agent {agent_config['id']} created")
-            elif agent_config["type"] == "MX2R":
-                self.agents[agent_config["id"]] = MixtureOfTwoExperts(
-                    base_agent = self,
-                    agent_config = agent_config,
-                    experts = [self.agents[expert] for expert in agent_config["experts"]]
-                )
-                print(f"Mixture-of-Two-Experts agent {agent_config['id']} created")
+                print(f"New-Mixture-of-Experts agent {agent_config['id']} created")
             else:
                 raise ValueError(f"Unknown model type: {agent_config['type']}")  
         self.set_last_agent()
@@ -216,7 +201,8 @@ class BaseAgent:
                 if other_agent.config["type"] == "CONT" and other_agent.config["contingent_agent"] == agent_id:
                     is_last_agent = False
                     break
-                elif (other_agent.config["type"] == "MXTR" or other_agent.config["type"] == "MX2R") and (agent_id in other_agent.config["experts"]):
+                #elif (other_agent.config["type"] == "MXTR" or other_agent.config["type"] == "MX2R" or other_agent.config["type"] == "NEW_MXTR") and (agent_id in other_agent.config["experts"]):
+                elif other_agent.config["type"] == "MXTR" and agent_id in other_agent.config["experts"]:
                     is_last_agent = False
                     break
             if is_last_agent:
@@ -266,12 +252,21 @@ class BaseAgent:
 
     # ========================== visualization ==================================
 
-    def visualize_agent_tree(self, filename: str) -> None:
+    def visualize_action_field(self):
+        observation_field = self.base_env.unwrapped.get_observation_field()
+        action_field = [[None]*len(observation_field[0]) for _ in range(len(observation_field))]
+        for i in range(len(observation_field)):
+            for j in range(len(observation_field[i])):
+                action_field[i][j] = self.predict(observation_field[i][j])[0]
+        self.base_env.unwrapped.draw_action_field(action_field, savepath=self.folder)
+
+    def visualize_agent_tree(self, filename: str = None) -> None:
         def add_node(agent: StructureAgent, G: nx.DiGraph, depth: int = 0):
             agent_type = agent.config["type"]
             model_type = agent.config["model_type"]
             G.add_node(agent.id, agent_type=agent_type, model_type=model_type, id=agent.id)
-            if agent_type == "MXTR" or agent_type == "MX2R":
+            #if agent_type == "MXTR" or agent_type == "MX2R" or agent_type == "NEW_MXTR":
+            if agent_type == "MXTR":
                 for expert in agent.experts:
                     depth = max(depth, add_node(expert, G, depth + 1))
                     G.add_edge(expert.id, agent.id)
@@ -293,7 +288,8 @@ class BaseAgent:
         node_color_map = {agent_type: color for agent_type, color in zip(agent_types, node_colors)}
 
         def set_parent_positions(node, pos, G: nx.DiGraph):
-            if G.nodes[node]["agent_type"] == "MXTR" or G.nodes[node]["agent_type"] == "MX2R":
+            #if G.nodes[node]["agent_type"] == "MXTR" or G.nodes[node]["agent_type"] == "MX2R" or G.nodes[node]["agent_type"] == "NEW_MXTR":
+            if G.nodes[node]["agent_type"] == "MXTR":
                 # Get the parents of the node
                 parents = list(G.predecessors(node))
                 x, y = pos[node]
@@ -320,5 +316,8 @@ class BaseAgent:
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10, font_color="red")
 
         plt.axis("off")
-        plt.savefig(filename)
+        if filename is None:
+            plt.show()
+        else:
+            plt.savefig(filename)
         plt.close()

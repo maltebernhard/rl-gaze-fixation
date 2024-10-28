@@ -4,6 +4,8 @@ import yaml
 from agent.base_agent import BaseAgent
 import matplotlib.pyplot as plt
 
+from utils.plotting import plot_actions_observations
+
 # ============================= config =================================
 
 env_config = {
@@ -24,15 +26,19 @@ env_config = {
     "use_obstacles":       True,
 }
 
-env_seed = 10
+env_seed = 5
 #env_seed = int(time.time())
 
 with open("./config/env/one_obstacle.yaml") as file:
     env_config = yaml.load(file, Loader=yaml.FullLoader)
 
-with open("./config/agent/1obst-(targ_obst_still)_mixt_gaze.yaml") as file:
+with open("./config/agent/TEST_(targ_obst_left_gaze)_mixt.yaml") as file:
     model_config = yaml.load(file, Loader=yaml.FullLoader)
 
 base_agent = BaseAgent(model_config, env_config)
 
+base_agent.visualize_action_field()
+
 base_agent.run(prints=False, timesteps=100000, env_seed=env_seed)
+
+#plot_actions_observations(base_agent.last_agent, 20, env_seed=env_seed)

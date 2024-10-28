@@ -121,21 +121,18 @@ def plot_actions_observations(agent, num_logs: int = 20, env_seed: int = 5, save
 
     # Plot actions
     for i in range(mean_actions.shape[1]):
-        if i == 0:
-            label = 'Towards Target Relevance'
-        elif i == 1:
-            label = 'Obstacle Evasion Relevance'
-        elif i == 2:
-            label = 'Stopping Relevance'
-        elif i == 3:
-            label = 'Left Relevance'
-        elif i == 4:
-            label = 'Right Relevance'
+        if agent.config["type"] == "MXTR":
+            label = f"{agent.config['experts'][i]}_relevance"
+        elif agent.config["type"] == "PLCY":
+            label = f"{agent.action_keys[i]}"
+        else:
+            raise ValueError("Agent type not supported.")
         axs[0].plot(mean_actions[:, i], label=f'{label}')
         axs[0].fill_between(range(mean_actions.shape[0]), 
                             mean_actions[:, i] - std_actions[:, i], 
                             mean_actions[:, i] + std_actions[:, i], 
                             alpha=0.2)
+    
     axs[0].set_xlabel('Timestep')
     axs[0].set_ylabel('Action Value')
     axs[0].set_title('Mean and Standard Deviation of Actions over Time')
