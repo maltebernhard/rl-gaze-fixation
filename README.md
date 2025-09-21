@@ -1,44 +1,70 @@
-# gaze-fixation
+# Gaze-Fixation: Reinforcement Learning for Target Reaching and Obstacle Avoidance
 
-## Structure
-- Actions:
-    - Acceleration in radial and lateral direction
-    - Without Gaze Fixation: rotational acceleration
-- Observations:
-    - (1 - Orientation offset to target)
-        - Optional: only if Gaze Fixation is not used
-    - 2 - Robot rotational velocity
-    - 3 - Robot radial velocity
-    - 4 - Robot lateral velocity
-    - (5 - Robot distance error)
-        - Optional: can be turned off to make state partially observed
-    - 6 - State estimate: Orientation offset derivative
-        - only needed for gaze fixation
-    - (7 - obstacles (orientation offset, relative size in camera image, optional: distance))
+This project implements a 2D simulation environment for training a holonomic robot using reinforcement learning. The robot is tasked with reaching a target while avoiding obstacles. The framework supports modular agent architectures, including policy-based, contingency-based, and mixture-of-experts models, and leverages the `stable-baselines3` library for training.
 
-- Reward:
-    - Increasing reward 1/(error + 1) within margin, 0 else, multiplied by timestep
-    - Acceleration (energy waste) penalizes the reward slightly
-    - Every second spent at optimal distance to target yields reward 1
+## Features
 
-## ToDo
+- **Environment**: 
+  - 2D holonomic robot with configurable dynamics (e.g., max velocity, acceleration, sensor angle).
+  - Targets and obstacles are dynamically generated.
+  - Customizable reward structure for proximity to the target, obstacle avoidance, energy efficiency, and collision penalties.
 
-- play around with reward and penalty margins / obstacle proximity vs. collision penalty?
+- **Agent Architectures**:
+  - **Policy Agents**: Predefined behaviors such as moving towards the target or avoiding obstacles.
+  - **Contingency Agents**: Reactive agents that adapt based on specific conditions.
+  - **Mixture-of-Experts (MoE)**: Combines multiple sub-agents to handle complex tasks.
 
-- Important considerations
-    - additional skills (go sideways, fixate elsewhere, ...)
-        - maybe apply gaussians here?
-    - how to put sensorimotor contingencies into mixture model?
+- **Reinforcement Learning**:
+  - Supports training with PPO (Proximal Policy Optimization) and other RL algorithms.
+  - Modular callbacks for logging, plotting, and monitoring training progress.
 
-- apply wandb logging
+- **Visualization**:
+  - Real-time rendering of the environment using `pygame`.
+  - Tools for visualizing action fields, training progress, and agent behavior.
 
-- contingencies
-    - max radial velocity contingency for obstacles
-        - could be relevant to include some understanding of which contingency is active into model
+## Project Structure
 
-- Time-variant objective:
-    - make target move through space
+- **`environment/`**: Contains the simulation environment (`GazeFixEnv`) and its components (robot, obstacles, target).
+- **`agent/`**: Implements agent architectures, including policy, contingency, and mixture models.
+- **`utils/`**: Utility scripts for logging, plotting, and user interaction.
+- **`config/`**: YAML configuration files for environment and agent setups.
+- **`train_model.py`**: Script for training agents.
+- **`test_env.py`**: Script for testing the environment and agent behavior.
 
-- new environment
-    - how about classics?
-        - drone landing --> look into lunar lander
+## Getting Started
+
+### Prerequisites
+
+- Python 3.8+
+- Dependencies: Install via `pip install -r requirements.txt` (ensure `stable-baselines3`, `pygame`, `matplotlib`, `numpy`, `wandb`, etc.).
+
+### Running the Simulation
+
+1. **Train an Agent**:
+   ```bash
+   python train_model.py
+   ```
+   Modify the agent and environment configurations in config as needed.
+
+2. **Test the Environment**:
+   ```bash
+   python test_env.py
+   ```
+
+3. **Load and Run a Pretrained Agent**:
+   ```bash
+   python load_run.py
+   ```
+
+### Visualization
+
+- Training progress and agent behavior can be visualized using the plotting utilities in plotting.py.
+
+## Configuration
+
+- **Environment**: Configure parameters like timestep, world size, number of obstacles, and robot dynamics in env.
+- **Agents**: Define agent types, observation keys, and reward indices in agent.
+
+## License
+
+This project is for academic and research purposes. Please contact the author for usage in other contexts.
